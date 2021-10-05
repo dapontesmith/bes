@@ -87,10 +87,7 @@ mod1_belong_policy <- lmer(data = raw11, belongLocal ~ p_gross_household +
 mod1_belong_context <- lmer(data = raw11, belongLocal ~ p_gross_household + p_edlevel + 
                age + male + p_socgrade + white_british + (1 | pcon) + 
                median_income_scale + scale(price_change5yr) + rate2016 + 
-                 population_density + constituency_type.x)
-
-
-
+                 population_density + constituency_type.x + ethnicity_white_british)
 
 
 
@@ -105,13 +102,15 @@ context_plot <- cbind(names(fixef(mod1_belong_context)),
   rename(var = V1, est = V2, sd = V3) %>% 
   mutate(var = str_remove(var, "\\("), var = str_remove(var, "\\)")) %>%
   filter(var %in% c("median_income_scale","scaleprice_change5yr",
-                    "rate2016","population_density","constituency_type.xCounty")) %>% 
+                    "rate2016","population_density","constituency_type.xCounty",
+                    "ethnicity_white_british")) %>% 
   mutate(var_name = case_when(
     var == "median_income_scale" ~ "Median income",
     var == "scaleprice_change5yr" ~ "5-yr pct. chg. house prices",
     var == "rate2016" ~ "Unemployment rate (2016)",
     var == "population_density" ~ "Density", 
-    var == "constituency_type.xCounty" ~ "County constituency"
+    var == "constituency_type.xCounty" ~ "County constituency",
+    var == "ethnicity_white_british" ~ "Pct. White British"
   ), est = as.numeric(est), sd = as.numeric(sd)) %>% 
   mutate(conf.low = est - 1.96*sd,
          conf.high = est + 1.96*sd) %>% 
@@ -219,12 +218,127 @@ stargazer(mod_effic1, mod_effic2, mod_effic3, mod_effic4, type = "latex",
           model.numbers = TRUE, column.sep.width = "3pt")
 
 
+############################################################################
+#### COSMOPOLITANISM / FEELING THERMOMETER ANALYSES 
+###################################################################3
+
+#same as above, including variables for attitudes towards britishness and towards immigrants
 
 
+
+mod_warm_syrian <- lmer(data = raw11, warmSyrians ~ p_gross_household + p_edlevel + 
+                     age + male + white_british + p_socgrade + 
+                     belongLocal + ethnicity_white_british + rate2017 + (1 | pcon))
+mod_warm_indian <- lmer(data = raw11, warmIndian ~ p_gross_household + p_edlevel + 
+                          age + male + white_british + p_socgrade + 
+                          belongLocal +  ethnicity_white_british + rate2017 + (1 | pcon))
+mod_warm_eastern <- lmer(data = raw11, warmEastern ~ p_gross_household + p_edlevel + 
+                          age + male + white_british + p_socgrade + 
+                          belongLocal +  ethnicity_white_british + rate2017 + (1 | pcon))
+mod_customs <- lmer(data = raw11, britCustoms ~ p_gross_household + 
+                      p_edlevel + age + male + white_british + p_socgrade + 
+                      belongLocal + ethnicity_white_british + rate2017 +  (1 | pcon))
+mod_christian <- lmer(data = raw11, britChristian ~ p_gross_household + 
+                        p_edlevel + age + male + white_british + p_socgrade + 
+                        belongLocal +  ethnicity_white_british + rate2017 + (1 | pcon))
+
+
+
+
+
+#plot the customs results and chrstian results
+names <- c("intercept","p_gross_household","p_edlevel",
+           "age","male","white_british","p_socgrade","belongLocal")
+rbind(cbind(summary(mod_customs)$coef[,1],
+      summary(mod_customs)$coef[,2], names),
+      cbind(summary(mod_christian)$coef[,1],
+      summary(mod_christian)$coef[,2], names)) %>% 
+  as_tibble() %>%
+  filter(names != "intercept") %>% 
+  mutate(variable = case_when(
+    names == "p_gross_household" ~ "Income", 
+    names == "p_edlevel" ~ "Education", 
+    names == "age" ~ "Age",
+    names == "male" ~ "Male", 
+    names == "white_british" ~ "White British",
+    names == "p_socgrade" ~ "Social grade",
+    names == "belongLocal" ~ "Local belonging"
+  ),
+  model = c(rep("Customs model", 7), rep("Christianity model", 7))) %>%
+  rename(coef = V1, sd = V2) %>% 
+  mutate(coef = as.numeric(coef),
+         sd =as.numeric(sd)) %>% 
+  mutate(upper = coef + 1.96*sd, 
+         lower = coef - 1.96*sd) %>% 
+
+  ggplot() + 
+  geom_pointrange(aes(x = variable, y = coef, ymin = lower, ymax = upper)) + 
+  facet_wrap(~ model) + 
+  theme_minimal()  + 
+  coord_flip() + 
+  labs(x = "Attribute", y = "Estimate") + 
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red")
+ # rename(customs_coef = V1, customs_sd = V2, 
+  #       christian_coef = V3, christian_sd = V4) %>%
+ # filter(names == "belongLocal") 
+
+
+class(mod_warm_syrian) <- "lmerMod"
+class(mod_warm_indian) <- "lmerMod"
+class(mod_warm_eastern) <- "lmerMod"
+class(mod_customs) <- "lmerMod"
+class(mod_christian) <- "lmerMod"
+
+stargazer(mod_warm_syrian, mod_warm_indian, mod_warm_eastern, mod_customs, mod_christian,
+          type = "latex", 
+          keep = c("belongLocal","ethnicity_white_british","rate2017"),
+          dep.var.labels.include = FALSE,
+          covariate.labels = c("Local belonging", "% White British", "Unemployment Rate"),
+          column.labels = c("Syrians", "Indians","East Europeans","Customs","Christianity"),
+          no.space = TRUE, 
+          star.cutoffs = c(0.05, 0.01, 0.001),
+          label = "tab:mod_cosmopolitan",
+          header = FALSE)
+
+
+
+
+mod_immig <- lmer(data = raw11, immigSelf ~ p_gross_household + p_edlevel + 
+                    age + male + white_british + p_socgrade + 
+                    belongLocal + as.factor(partyIdName) + 
+                    (1 | pcon))
+class(mod_immig) <- "lmerMod"
+
+stargazer(mod_immig,
+          type = "latex", 
+          keep = "belongLocal",
+          #dep.var.labels.include = FALSE,
+          dep.var.labels = "Immigration preferences (high-low)",
+          covariate.labels = "Local belonging",
+         # column.labels = c("Syrians", "Indians","East Europeans","Customs","Christianity"),
+          no.space = TRUE, 
+          star.cutoffs = c(0.05, 0.01, 0.001),
+          label = "tab:mod_immig_cosmo",
+          header = FALSE)
+
+
+mod_immig_cosmo_plot <- 
+  plot(ggpredict(mod_immig, terms = c("partyIdName","belongLocal")), 
+       colors = "bw",
+       ci.style = "dash",
+       show.title = FALSE) +
+  ggtitle("Predicted immigration preferences, by party and local belonging") + 
+  labs(x = "Party", 
+       y = "Immigration preferences (higher values = fewer immigrants)",
+       shape = "Local belonging") + 
+  theme(title = element_blank())
+
+ggsave("drafts/paper1/figures/mod_immig_cosmo_plot.pdf",
+       mod_immig_cosmo_plot)
 
 ####basic local Econ analyses, plus interaction with belongLoacl
 mod1 <- lmer(data = raw11, vote_con ~ localEcon + p_gross_household + 
-               p_edlevel + age + male + p_socgrade + white_british + (1 | pcon))
+               p_edlevel + age + male + p_socgrade + white_british +(1 | pcon))
 mod2 <- lmer(data = raw15, voteCon ~ localEcon +p_gross_household +
                p_edlevel + age + male + p_socgrade +  white_british + (1 | pcon))
 mod3 <- lmer(data = raw11, vote_con ~ localEcon + p_gross_household +
@@ -238,9 +352,7 @@ mod5 <- lmer(data = raw11, vote_con ~ localEcon + belongLocal + econGenRetro +
 mod6 <- lmer(data = raw11, vote_con ~ localEcon*belongLocal + econGenRetro + econPersonalRetro + 
                p_edlevel + age + male + p_socgrade + p_gross_household + white_british +  (1 | pcon))
 
-summary(lmer(data = raw11, vote_con ~ localEcon*scale(concen) + econGenRetro + 
-               econPersonalRetro + p_edlevel + age + male + p_socgrade + p_gross_household + 
-               white_british + (1 | pcon)))
+
 
 
 class(mod1) <- "lmerMod" ; class(mod2) <- "lmerMod" ; class(mod3) <- "lmerMod" 
@@ -745,12 +857,14 @@ plot(predict)
 #make plot of group belonging
 raw11 <- raw11 %>% 
   rename(belongEthnicity = belongGroup_5)
-belongs <- raw11 %>% dplyr::select(starts_with("belong"), -starts_with("belongGroup")) 
-names <- c("Region","Locality","Middle Class","Working Class","Ethnicity")
+belongs <- raw11 %>% dplyr::select(starts_with("belong")) %>% 
+  rename(belongNone = belongGroup_111) %>%
+  dplyr::select(-belongGroup_99)
+ names <- c("Region","Locality","Middle Class","Working Class","Ethnicity","None")
 
 
 belong_plot <- belongs %>% 
-  pivot_longer(cols = belongRegion:belongEthnicity, 
+  pivot_longer(cols = belongRegion:belongNone, 
                names_to = "variable", values_to = "value") %>% 
   mutate(variable = str_remove(variable, "belong"),
          variable = str_replace(variable, "Class", " class"),
@@ -759,13 +873,42 @@ belong_plot <- belongs %>%
   summarize(prop = sum(value, na.rm = TRUE) / n()) %>% 
   arrange(desc(prop)) %>% 
   ggplot() + 
-  geom_col(aes(x = prop, y = variable)) + 
+  geom_col(aes(x = prop, y = reorder(variable, prop))) + 
   theme_minimal() + 
   ggtitle("Proportion of respondents with sense of group belonging") + 
   xlab("Proportion") + ylab("Group")
 
-ggsave("prospectus/figures/belonging_plot.pdf", belong_plot)
+ggsave("drafts/paper1/figures/belonging_plot.pdf", belong_plot)
 
+#do this for strongestconnection as well
+strongest_connection_plot <- raw11 %>%
+  mutate(connection = case_when(
+    strongestConnection == 0 ~ "None of the above",
+    strongestConnection == 1 ~ "Sports team",
+    strongestConnection == 2 ~ "Musician or band",
+    strongestConnection == 3 ~ "Town or city",
+    strongestConnection == 4 ~ "Film star or celebrity",
+    strongestConnection == 5 ~ "Social club or community group",
+    strongestConnection == 6 ~ "A charity",
+    strongestConnection == 7 ~ "Local church or religious group",
+    strongestConnection == 8 ~ "A school, college, or university",
+    strongestConnection == 9 ~ "A film/TV series"
+  )) %>% 
+  dplyr::select(connection) %>% 
+  group_by(connection) %>% 
+  summarise(n = n()) %>% 
+  filter(!is.na(connection)) %>%
+  mutate(total = sum(n),
+         prop = n/total) %>% 
+  arrange(desc(prop)) %>% 
+  ggplot() + 
+  geom_col(aes(x = prop, y = reorder(connection, prop))) + 
+  theme_minimal() + 
+  labs(x = "% with group as strongest connection", 
+       y = "Group") 
+ggsave("drafts/paper1/figures/strongest_connection_plot.pdf", 
+       strongest_connection_plot)
+ 
 
 #read in data from Understandng Society wave 8
 us <- read_dta("data/understanding_society/bhps/stata/stata13_se/ukhls_w8/h_indresp.dta")
