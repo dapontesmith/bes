@@ -8,6 +8,8 @@ library(lmerTest)
 library(parlitools) #has various useful data for linking to BES 
 library(sf)
 library(DescTools)
+rm(list = ls())
+
 
 
 raw <- read.csv("data/bes/internet_panel/bes_wave11_msoa_clean.csv")
@@ -65,7 +67,11 @@ df <- raw %>%
     londonEcon = as.numeric(londonEcon),
     localEcon = as.numeric(localEcon),
     selfEcon = as.numeric(selfEcon)
-  )
+  ) %>% 
+  #pget only people who appear once in the data 
+  group_by(id) %>% 
+  mutate(n = n()) %>%
+  filter(n == 1)
 
 #clean all the variables ... 
 df[df == 9999] <- NA 
@@ -178,7 +184,18 @@ df <- df %>% mutate(
 #higher values of redistSelf = more anti-immigration
 df$immigSelf <- max(df$immigSelf, na.rm = TRUE) - df$immigSelf
 
-
+#create variable for whether respondent has children in household
+df <- df %>% 
+  mutate(p_hh_children = as.numeric(p_hh_children),
+    children_in_household = case_when(
+    p_hh_children == 1 ~ 0,
+    p_hh_children == 2 ~ 1, 
+    p_hh_children == 3 ~ 1, 
+    p_hh_children == 4 ~ 1,
+    p_hh_children == 5 ~ 1, 
+    p_hh_children == 6 ~ 1
+  ))
+df$children_in_household <- ifelse((is.na(df$p_hh_children) | (df$p_hh_children %in% c(8,9))), NA, df$children_in_household )
 
 #read in local authority lookup
 locals <- read_csv("data/uk_geography/localauthorities_codes_dec2017.csv")
@@ -396,39 +413,54 @@ tenure <- tenure %>%
 
 
 
+df <- left_join(df, tenure, by = c("pcon" = "ConstituencyName"))
 
 
 
 
+#read in wave 10 data
+ethno <- read_csv("data/bes/internet_panel/bes_wave10_ethno_vars.csv")
+ethno <- ethno %>%
+  filter(wave10 == 1 & wave11 == 1) %>%
+  dplyr::select(-wave10, -wave11)
+ethno[ethno == 9999] <- NA
 
-# #read in wave 10 data
-# ethno <- read_csv("data/bes/internet_panel/bes_wave10_ethno_vars.csv")
-# ethno <- ethno %>%
-#   filter(wave10 == 1 & wave11 == 1) %>% 
-#   dplyr::select(-wave10, -wave11)
-# ethno[ethno == 9999] <- NA 
-# 
-# #recode ethno variables so higher = more ethnocentric / less cosmopolitan
-# #refer to the BES full codebook for this purpose
-# ethno <- ethno %>%
-#   mutate(ethno1 = max(ethno1W10, na.rm = TRUE) + 1 - ethno1W10,
-#          ethno3 = max(ethno3W10, na.rm = TRUE) + 1 - ethno3W10,
-#          ethno6 = max(ethno6W10, na.rm = TRUE) + 1 - ethno6W10,
-#          ethno4 = ethno4W10,
-#          ethno2 = ethno2W10, 
-#          ethno5 = ethno5W10) %>%
-#   dplyr::select(id, ethno1:ethno5)
-# 
-# mean_ethno <- ethno %>% 
-#   pivot_longer(cols = ethno1:ethno5, names_to = "var",
-#                values_to = "value") %>%
-#   group_by(id) %>%
-#   summarize(ethnocentrism = mean(value, na.rm = TRUE))
-# 
-# ethno <- left_join(ethno, mean_ethno, by = "id")
-# 
-# #join this to the ethnocentrism variables 
-# df <- left_join(df, ethno, by = "id")
+#recode ethno variables so higher = more ethnocentric / less cosmopolitan
+#refer to the BES full codebook for this purpose
+ethno <- ethno %>%
+  mutate(ethno1 = max(ethno1W10, na.rm = TRUE) + 1 - ethno1W10,
+         ethno3 = max(ethno3W10, na.rm = TRUE) + 1 - ethno3W10,
+         ethno6 = max(ethno6W10, na.rm = TRUE) + 1 - ethno6W10,
+         ethno4 = ethno4W10,
+         ethno2 = ethno2W10,
+         ethno5 = ethno5W10) %>%
+  dplyr::select(id, ethno1:ethno5)
+
+
+
+
+#join this to the ethnocentrism variables
+test <- left_join(df, ethno, by = "id")
 
 write.csv(df, "data/bes/internet_panel/clean_data/wave11_clean.csv")
+
+
+
+
+
+
+test_minus_ethno <- test %>%
+  dplyr::select(-ethno1, -ethno2, -ethno3, -ethno4, -ethno5, -ethno6)
+
+id_twice <- df %>%
+  group_by(id) %>% 
+  mutate(n = n()) %>%
+  filter(n > 1)
+
+id_twice_ethno <- test_minus_ethno %>%
+  group_by(id) %>% 
+  mutate(n = n()) %>%
+  filter(n > 1)
+
+all(apply(id_twice, 2, function(x) length(unique(x)) == 1) == TRUE)
 
