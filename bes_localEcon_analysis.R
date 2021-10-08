@@ -13,6 +13,7 @@ library(sjPlot)
 library(expss)
 library(xtable)
 library(parallel)
+library(sf)
 library(haven)
 library(patchwork)
 library(modelsummary)
@@ -109,11 +110,11 @@ mod1_belong_demo <- lmer(data = raw11, belongLocal ~ p_gross_household +
 
 mod1_belong_region <- lmer(data = raw11, belongLocal ~ p_gross_household +
   p_edlevel + age + male + p_socgrade + white_british +
-  as.factor(region) + (1 | pcon), weights = wt_full_)
+  as.factor(region) + (1 | pcon))
 
 mod1_belong_party <- lmer(data = raw11, belongLocal ~ p_gross_household +
   p_edlevel + age + male + p_socgrade + white_british +
-  as.factor(partyIdName) + (1 | pcon), weights = wt_full_)
+  as.factor(partyIdName) + (1 | pcon))
 
 mod1_belong_remain <- lmer(data = raw11, belongLocal ~ p_gross_household +
   p_edlevel + age + male + p_socgrade + white_british +
@@ -226,19 +227,88 @@ party_plot <- cbind(
     conf.high = est + 1.96 * sd
   ) %>%
   ggplot() +
-  geom_pointrange(aes(x = var, y = est, ymin = conf.low, ymax = conf.high)) +
+  geom_pointrange(aes(x = reorder(var, est), y = est, ymin = conf.low, ymax = conf.high)) +
   coord_flip() +
   geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
   theme_minimal() +
-  labs(x = "Party", y = "Estimate")
+  labs(x = "Party", y = "Estimate",
+       caption = "Coefficients on party fixed effects in linear multilevel regressions of local
+      belonging on demographic predictors. Baseline party is the Conservatives.",
+       title = "Partisan predictors of local belonging")
+ggsave("drafts/paper1/figures/party_plot.pdf", party_plot)
 
-region_party_plot <- region_plot + party_plot + plot_annotation(
-  title = "Regional and partisan correlates of local belonging",
-  caption = "Results from regressions with fixed effects by region and party identification respectively.
-  Both regressions include demographic covariates. The baseline region is the
-  East Midlands; the baseline party is Conservative. Each point represents the estimated
-  propensity of members of the region or party to identify with the local community, above the baseline.
-  Errors bars represent 95 percent confidence intervals."
+#make map of region coefficients
+shp <- st_read("data/uk_geography/shapefiles/NUTS_Level_1_(January_2018)_Boundaries.shp")
+#change coordinate system to WGS 84
+shp <- st_transform(shp, "+proj=longlat +datum=WGS84") %>%
+  mutate(region = case_when(
+    nuts118cd == "UKC" ~ "North East",
+    nuts118cd == "UKD" ~ "North West",
+    nuts118cd == "UKE" ~ "Yorkshire and The Humber",
+    nuts118cd == "UKF" ~ "East Midlands",
+    nuts118cd == "UKG" ~ "West Midlands",
+    nuts118cd == "UKH" ~ "East of England",
+    nuts118cd == "UKI" ~ "London",
+    nuts118cd == "UKJ" ~ "South East",
+    nuts118cd == "UKK" ~"South West",
+    nuts118cd == "UKL" ~ "Wales",
+    nuts118cd == "UKM" ~ "Scotland",
+    nuts118cd == "UKN" ~ "Northern Ireland",
+  )) %>% 
+  filter(region != "Northern Ireland")
+
+
+region_df <- cbind(
+  names(fixef(mod1_belong_region)),
+  summary(mod1_belong_region)$coef[, 1],
+  summary(mod1_belong_region)$coef[, 2]
+) %>%
+  as_tibble() %>%
+  rename(region = V1, est = V2, sd = V3) %>%
+  filter(str_detect(region, "as.factor") == TRUE) %>%
+  mutate(
+    region = str_remove(region, "as.factor"),
+    region = str_remove(region, "region"),
+    region = str_remove(region, "\\(\\)"),
+    est = as.numeric(est), sd = as.numeric(sd),
+    upper = est + 1.96*sd, 
+    lower = est - 1.96*sd,
+    sig = case_when(
+      upper > 0 & lower > 0 ~ 1, 
+      upper > 0 & lower < 0 ~ 0,
+      upper < 0 & lower < 0 ~ 1
+    )
+  ) %>% 
+  dplyr::select(region, est) %>% 
+  add_row(region = "East Midlands", est = 0)
+
+
+region_map <- left_join(shp, region_df, by = "region") %>% 
+  rename(Coefficient = est) %>% 
+  ggplot() + 
+  geom_sf(aes(fill = Coefficient), color = NA) + 
+  ggtitle("Regional predictors of localism") + 
+  #scale_fill_viridis_c(option = "plasma") + 
+  theme(rect = element_blank(), 
+        axis.ticks = element_blank(), 
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(  ),
+        legend.position = "left",
+        plot.title = element_text(hjust = 0))  + 
+  scale_fill_gradient2(low = ("blue"), mid = "white", 
+                     high = ("red"), midpoint = 0) +
+  labs(caption = "Coefficients on region fixed effects in multilevel linear model regressing 
+  local belonging on demographic predictors. Coefficients on Scotland, 
+                  Wales, and London FEs are significant. Baseline is East Midlands.")
+ggsave("drafts/paper1/figures/region_map.pdf", region_map)
+
+region_party_plot <- region_map + party_plot + plot_annotation(
+  title = "Regional and partisan correlates of local belonging"
+  # caption = "Results from regressions with fixed effects by region and party identification respectively.
+  # Both regressions include demographic covariates. The baseline region is the
+  # East Midlands; the baseline party is Conservative. Each point represents the estimated
+  # propensity of members of the region or party to identify with the local community, above the baseline.
+  # Errors bars represent 95 percent confidence intervals."
 )
 ggsave("drafts/paper1/figures/region_party_plot.pdf", region_party_plot)
 
@@ -338,11 +408,10 @@ efficacy_plot <- effic %>%
   geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
   labs(
     y = "Estimated relationship with local belonging",
-    x = "Variable",
+    x = "",
     title = "Local belonging and attitudes towards political process",
-    caption = "Coefficient of local belonging variable in regression of efficacy
-       variable on demographics and local belonging. Models include
-       constituency random effects and party fixed effects."
+    caption = "Coefficient of local belonging variable in regression of efficacy variable on demographics and
+    local belonging. Models include constituency random effects and party fixed effects."
   )
 ggsave(
   "drafts/paper1/figures/efficacy_plot.pdf",
@@ -435,7 +504,7 @@ brit_plot <- rbind(coef4, coef5) %>%
   theme_minimal() +
   coord_flip() +
   geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
-  labs(y = "Estimate", x = "Variable", title = "Attitudes towards Britishness")
+  labs(y = "Estimate", x = "", title = "Attitudes towards Britishness")
 
 #patchwork the plots together 
 cosmo_plot <- brit_plot + warm_plot +
@@ -963,3 +1032,67 @@ raw11 %>%
 
 
 
+
+#make map of region coefficients
+shp <- st_read("data/uk_geography/shapefiles/NUTS_Level_1_(January_2018)_Boundaries.shp")
+#change coordinate system to WGS 84
+shp <- st_transform(shp, "+proj=longlat +datum=WGS84")
+
+shp <- shp %>%
+  mutate(region = case_when(
+   nuts118cd == "UKC" ~ "North East",
+   nuts118cd == "UKD" ~ "North West",
+   nuts118cd == "UKE" ~ "Yorkshire and The Humber",
+   nuts118cd == "UKF" ~ "East Midlands",
+   nuts118cd == "UKG" ~ "West Midlands",
+   nuts118cd == "UKH" ~ "East of England",
+   nuts118cd == "UKI" ~ "London",
+   nuts118cd == "UKJ" ~ "South East",
+   nuts118cd == "UKK" ~"South West",
+   nuts118cd == "UKL" ~ "Wales",
+   nuts118cd == "UKM" ~ "Scotland",
+   nuts118cd == "UKN" ~ "Northern Ireland",
+  )) %>% 
+  filter(region != "Northern Ireland")
+
+
+region_df <- cbind(
+  names(fixef(mod1_belong_region)),
+  summary(mod1_belong_region)$coef[, 1],
+  summary(mod1_belong_region)$coef[, 2]
+) %>%
+  as_tibble() %>%
+  rename(region = V1, est = V2, sd = V3) %>%
+  filter(str_detect(region, "as.factor") == TRUE) %>%
+  mutate(
+    region = str_remove(region, "as.factor"),
+    region = str_remove(region, "region"),
+    region = str_remove(region, "\\(\\)"),
+    est = as.numeric(est), sd = as.numeric(sd),
+    upper = est + 1.96*sd, 
+    lower = est - 1.96*sd,
+    sig = case_when(
+      upper > 0 & lower > 0 ~ 1, 
+      upper > 0 & lower < 0 ~ 0,
+      upper < 0 & lower < 0 ~ 1
+    )
+  )
+
+shp_df <- left_join(shp, region_df, by = "region")
+
+
+
+
+region_map <- shp_df %>% 
+  rename(Coefficient = est) %>% 
+  ggplot() + 
+  geom_sf(aes(fill = Coefficient), color = NA) + 
+  scale_fill_viridis_c(option = "plasma") + 
+  theme(rect = element_blank(), 
+        axis.ticks = element_blank(), 
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(  ),
+        legend.position = "left") + 
+  labs(caption = "Coefficients on region fixed effects in multilevel linear model regressing 
+  local belonging on demographic predictors. Coefficients on Scotland, 
+                  Wales, and London FEs are significant. Baseline is East Midlands.")
