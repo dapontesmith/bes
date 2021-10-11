@@ -184,6 +184,35 @@ df <- df %>% mutate(
 #higher values of redistSelf = more anti-immigration
 df$immigSelf <- max(df$immigSelf, na.rm = TRUE) - df$immigSelf
 
+df <- df %>% 
+  mutate(
+    strongestConnection = as.numeric(strongestConnection), 
+    strongestConnectionTown = case_when(
+    strongestConnection == 3 ~ 1,
+    strongestConnection == 0 ~ 0,
+    strongestConnection == 1 ~ 0,
+    strongestConnection == 2 ~ 0,
+    strongestConnection == 4 ~ 0,
+    strongestConnection == 5 ~ 0,
+    strongestConnection == 6 ~ 0,
+    strongestConnection == 7 ~ 0,
+    strongestConnection == 8 ~ 0,
+    strongestConnection == 9 ~ 0,
+    TRUE ~ NA_real_
+  ), strongestConnectionLocal = case_when(
+    strongestConnection == 1 ~ 1,
+    strongestConnection == 3 ~ 1,
+    strongestConnection == 5 ~ 1,
+    strongestConnection == 7 ~ 1,
+    strongestConnection == 0 ~ 0,
+    strongestConnection == 2 ~ 0,
+    strongestConnection == 4 ~ 0,
+    strongestConnection == 6 ~ 0,
+    strongestConnection == 8 ~ 0,
+    strongestConnection == 9 ~ 0,
+    TRUE ~ NA_real_ 
+  ))
+
 #create variable for whether respondent has children in household
 df <- df %>% 
   mutate(p_hh_children = as.numeric(p_hh_children),
@@ -453,7 +482,7 @@ test_minus_ethno <- test %>%
   dplyr::select(-ethno1, -ethno2, -ethno3, -ethno4, -ethno5, -ethno6)
 
 id_twice <- df %>%
-  group_by(id) %>% 
+  group_by(id) %>%  
   mutate(n = n()) %>%
   filter(n > 1)
 
