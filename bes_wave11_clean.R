@@ -442,7 +442,7 @@ ethno <- ethno %>%
 #join this to the ethnocentrism variables
 test <- left_join(df, ethno, by = "id")
 
-write.csv(df, "data/bes/internet_panel/clean_data/wave11_clean.csv")
+write.csv(test, "data/bes/internet_panel/clean_data/wave11_clean.csv")
 
 
 
