@@ -59,6 +59,19 @@ eng11 <- raw11 %>%
   filter(country.y == "England") %>%
   filter(region != "Wales")
 
+#make version of data for vote models for fixed effect
+raw11_merge <- raw11 %>%
+  dplyr::select(pcon, p_edlevel, white_british, p_gross_household, age, male,
+                p_socgrade, localEcon, econGenRetro, econPersonalRetro, 
+                own_house, vote_con) %>% 
+  mutate(year = 2017)
+raw15_merge <- raw15 %>%
+  dplyr::select(pcon, p_edlevel, white_british, p_gross_household, age,
+                male, p_socgrade, localEcon, econGenRetro, econPersonalRetro,
+                own_house, voteCon) %>%
+  rename(vote_con = voteCon) %>% mutate(year = 2019)
+
+full_raw <- rbind(raw11_merge, raw15_merge)
 
 
 ########################################################################
@@ -69,37 +82,38 @@ eng11 <- raw11 %>%
 
 mod_local <- lmer(data = raw11, belongLocal ~ p_edlevel +
   age + male + p_socgrade + white_british +
-  p_gross_household + (1 | pcon), weights = wt_full_)
+  p_gross_household + (1 | pcon))
 mod_local_house <- lmer(data = raw11, belongLocal ~ p_edlevel +
   age + male + p_socgrade + white_british +
   p_gross_household + own_house +
-  (1 | pcon), weights = wt_full_)
-mod_local_econ <- lmer(data = raw11, belongLocal ~ p_edlevel +
+  (1 | pcon))
+mod_local_children <- lmer(data = raw11, belongLocal ~ p_edlevel +
   age + male + p_socgrade + white_british +
-  p_gross_household + localEcon +
-  (1 | pcon), weights = wt_full_)
+  p_gross_household + children_in_household +
+  (1 | pcon))
 
 #set model classes for stargazer
 class(mod_local) <- "lmerMod"
 class(mod_local_house) <- "lmerMod"
-class(mod_local_econ) <- "lmerMod"
+class(mod_local_children) <- "lmerMod"
 
 #stargaze these to produce table 2 
-stargazer(mod_local, mod_local_house, mod_local_econ,
+stargazer(mod_local, mod_local_house, mod_local_children,
   type = "text", header = FALSE,
   dep.var.labels.include = FALSE,
   dep.var.caption = "Local belonging (0/1)",
   no.space = TRUE,
   model.numbers = TRUE,
-  title = "belong_local_mod",
+  label = "belong_local_mod",
+  title = "Local belonging (0/1)",
   omit.stat = c("aic", "bic"),
   star.cutoffs = c(0.05, 0.01, 0.001),
   column.sep.width = "3pt",
-  covariate.labels = c(
-    "Education", "Age", "Male", "Social grade",
-    "White British", "Household income",
-    "Owns house", "Local econ"
-  )
+    covariate.labels = c(
+      "Education", "Age", "Male", "Social grade",
+      "White British", "Household income",
+      "Owns house", "Children at home"
+    )
 )
 
 
@@ -294,7 +308,9 @@ region_map <- left_join(shp, region_df, by = "region") %>%
         axis.text.x = element_blank(), 
         axis.text.y = element_blank(  ),
         legend.position = "left",
-        plot.title = element_text(hjust = 0))  + 
+        plot.title = element_text(hjust = 0),
+        plot.margin = margin(0.1, 0, 0.1, 0, "cm")
+  )  + 
   scale_fill_gradient2(low = ("blue"), mid = "white", 
                      high = ("red"), midpoint = 0) +
   labs(caption = "Coefficients on region fixed effects in multilevel linear model regressing 
@@ -438,10 +454,10 @@ mod_warm_eastern <- lmer(data = raw11, warmEastern ~ p_gross_household + p_edlev
   belongLocal + ethnicity_white_british + rate2017 + belongLocal + (1 | pcon), weights = wt_full_)
 mod_customs <- lmer(data = raw11, britCustoms ~ p_gross_household +
   p_edlevel + age + male + white_british + p_socgrade +
-  belongLocal + ethnicity_white_british + rate2017 + belongLocal + (1 | pcon), weights = wt_full_)
+  belongLocal + ethnicity_white_british + rate2017 + belongLocal + (1 | pcon))
 mod_christian <- lmer(data = raw11, britChristian ~ p_gross_household +
   p_edlevel + age + male + white_british + p_socgrade +
-  belongLocal + ethnicity_white_british + rate2017 + belongLocal + (1 | pcon), weights = wt_full_)
+  belongLocal + ethnicity_white_british + rate2017 + belongLocal + (1 | pcon))
 
 class(mod_warm_syrian) <- "lmerMod"
 class(mod_warm_indian) <- "lmerMod"
@@ -565,7 +581,7 @@ class(mod6) <- "lmerMod"
 
 #stargazer vote models 
 stargazer(mod1, mod2, mod3, mod4, mod5, mod6,
-  type = "text",
+  type = "latex",
   omit = c(
     "p_edlevel", "age", "male", "p_socgrade", "p_gross_household",
     "white_british", "Constant"
@@ -591,7 +607,10 @@ stargazer(mod1, mod2, mod3, mod4, mod5, mod6,
 
 
 # Table on asset-based localism and vote choice
-mod_home_2017_1 <- lmer(data = raw11, vote_con ~ own_house + econGenRetro + econPersonalRetro +
+raw11 <- raw11 %>% mutate(`Own House` = own_house)
+raw15 <- raw15 %>% mutate(`Own House` = own_house)
+
+mod_home_2017_1 <- lmer(data = raw11, vote_con ~  own_house + econGenRetro + econPersonalRetro +
   p_edlevel + age + male + p_socgrade + p_gross_household + white_british + (1 | pcon))
 mod_home_2017_2 <- lmer(data = raw11, vote_con ~ localEcon * own_house + econGenRetro + econPersonalRetro +
   p_edlevel + age + male + p_socgrade + p_gross_household + white_british + (1 | pcon))
@@ -625,16 +644,31 @@ stargazer(mod_home_2017_2, mod_home_2019_2,
 )
 
 #plot homeownership models 
-plot_mod_home_2017 <- plot(ggpredict(mod_home_2017, terms = c("localEcon", "own_house", "
-                                               econGenRetro [3]", "white_british [1]"))) +
-  labs(x = "Local economic evaluation (low - high)") +
-  theme(
-    axis.title.y = element_blank(),
-    title = element_blank()
-  ) +
-  guides(colour = guide_legend(title = str_wrap("Own house", 7)))
+plot_mod_home_2017 <- plot(ggpredict(mod_home_2017_2, terms = c("localEcon", "own_house", "econGenRetro [3]", "white_british [1]")),
+                           colors = "bw") +
+  labs(x = "Local economic evaluation (low - high)",
+       title = "2017 Sample") +
+  theme(axis.title.y = element_blank(), 
+        legend.position = "none") 
 
 
+plot_mod_home_2019 <- plot(ggpredict(mod_home_2019_2, terms = c("localEcon", "own_house", "
+                                               econGenRetro [3]", "white_british [1]")),
+                           colors = "bw") +
+  labs(x = "Local economic evaluation (low - high)",
+       title = "2019 Sample") +
+  theme(axis.title.y = element_blank()) +
+  guides(linetype = guide_legend(title = str_wrap("Own house", 7)))
+
+plot_mod_home <- plot_mod_home_2017 + 
+  plot_mod_home_2019 + 
+  plot_annotation(
+    title = "Predicted probability of Conservative vote, by homeownership",
+    caption = "Probabilities predicted from random-effects linear regression.
+    Probabilities are for white British, male respondent with neutral general
+    economic evaluation and mean values of all other covariates."
+  )
+ggsave("drafts/paper1/figures/plot_mod_home.pdf", plot_mod_home)
 
 
 
@@ -822,13 +856,6 @@ stargazer(mod6, mod7, mod10, mod11,
   column.sep.width = "3pt"
 )
 
-# ggplot predictions
-ggplot(ggpredict(mod10, terms = c("londonLocalEcon", "belongLocal"))) +
-  geom_line(aes(x, predicted, color = group)) +
-  geom_ribbon(aes(x, predicted,
-    ymin = conf.low, ymax = conf.high,
-    fill = group
-  ), alpha = 0.2)
 
 
 
@@ -1030,9 +1057,6 @@ raw11 %>%
 
 
 
-
-
-
 #make map of region coefficients
 shp <- st_read("data/uk_geography/shapefiles/NUTS_Level_1_(January_2018)_Boundaries.shp")
 #change coordinate system to WGS 84
@@ -1092,7 +1116,9 @@ region_map <- shp_df %>%
         axis.ticks = element_blank(), 
         axis.text.x = element_blank(), 
         axis.text.y = element_blank(  ),
-        legend.position = "left") + 
+        legend.position = "left",
+        plot.margin = margin(0.5, 0.5, 0.5, 0.5, "cm")
+  ) + 
   labs(caption = "Coefficients on region fixed effects in multilevel linear model regressing 
   local belonging on demographic predictors. Coefficients on Scotland, 
                   Wales, and London FEs are significant. Baseline is East Midlands.")
