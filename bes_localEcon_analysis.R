@@ -72,6 +72,28 @@ raw15_merge <- raw15 %>%
   rename(vote_con = voteCon) %>% mutate(year = 2019)
 
 full_raw <- rbind(raw11_merge, raw15_merge)
+non_localists <- raw11 %>% filter(belongLocal == 0)
+
+#read in region shapefile, rename regions
+shp <- st_read("data/uk_geography/shapefiles/NUTS_Level_1_(January_2018)_Boundaries.shp")
+#change coordinate system to WGS 84
+shp <- st_transform(shp, "+proj=longlat +datum=WGS84") %>%
+  mutate(region = case_when(
+    nuts118cd == "UKC" ~ "North East",
+    nuts118cd == "UKD" ~ "North West",
+    nuts118cd == "UKE" ~ "Yorkshire and The Humber",
+    nuts118cd == "UKF" ~ "East Midlands",
+    nuts118cd == "UKG" ~ "West Midlands",
+    nuts118cd == "UKH" ~ "East of England",
+    nuts118cd == "UKI" ~ "London",
+    nuts118cd == "UKJ" ~ "South East",
+    nuts118cd == "UKK" ~"South West",
+    nuts118cd == "UKL" ~ "Wales",
+    nuts118cd == "UKM" ~ "Scotland",
+    nuts118cd == "UKN" ~ "Northern Ireland",
+  )) %>% 
+  filter(region != "Northern Ireland")
+
 
 
 ########################################################################
@@ -130,23 +152,10 @@ mod1_belong_party <- lmer(data = raw11, belongLocal ~ p_gross_household +
   p_edlevel + age + male + p_socgrade + white_british +
   as.factor(partyIdName) + (1 | pcon))
 
-mod1_belong_remain <- lmer(data = raw11, belongLocal ~ p_gross_household +
-  p_edlevel + age + male + p_socgrade + white_british +
-  remainID + (1 | pcon), weights = wt_full_)
-
-mod1_belong_policy <- lmer(data = raw11, belongLocal ~ p_gross_household +
-  p_edlevel + age + male + p_socgrade + white_british +
-  houseBuild + cutsTooFarLocal + (1 | pcon), weights = wt_full_)
-
 mod1_belong_context <- lmer(data = raw11, belongLocal ~ p_gross_household + p_edlevel +
   age + male + p_socgrade + white_british + (1 | pcon) +
   median_income_scale + scale(price_change5yr) + rate2016 +
   population_density + constituency_type.x, weights = wt_full_)
-
-
-
-
-
 
 
 #####################################
@@ -252,24 +261,6 @@ party_plot <- cbind(
 ggsave("drafts/paper1/figures/party_plot.pdf", party_plot)
 
 #make map of region coefficients
-shp <- st_read("data/uk_geography/shapefiles/NUTS_Level_1_(January_2018)_Boundaries.shp")
-#change coordinate system to WGS 84
-shp <- st_transform(shp, "+proj=longlat +datum=WGS84") %>%
-  mutate(region = case_when(
-    nuts118cd == "UKC" ~ "North East",
-    nuts118cd == "UKD" ~ "North West",
-    nuts118cd == "UKE" ~ "Yorkshire and The Humber",
-    nuts118cd == "UKF" ~ "East Midlands",
-    nuts118cd == "UKG" ~ "West Midlands",
-    nuts118cd == "UKH" ~ "East of England",
-    nuts118cd == "UKI" ~ "London",
-    nuts118cd == "UKJ" ~ "South East",
-    nuts118cd == "UKK" ~"South West",
-    nuts118cd == "UKL" ~ "Wales",
-    nuts118cd == "UKM" ~ "Scotland",
-    nuts118cd == "UKN" ~ "Northern Ireland",
-  )) %>% 
-  filter(region != "Northern Ireland")
 
 
 region_df <- cbind(
@@ -672,89 +663,6 @@ ggsave("drafts/paper1/figures/plot_mod_home.pdf", plot_mod_home)
 
 
 
-# LOGIT MODELS, CLUSTERED STANDARD ERRORS AT PCON
-mod1glm <- glm(
-  data = raw11, voteConTwoParty ~ localEcon + p_gross_household +
-    p_edlevel + age + male + p_socgrade + white_british,
-  family = binomial(link = "logit")
-)
-mod2glm <- glm(
-  data = raw15, voteConTwoParty ~ localEcon + p_gross_household +
-    p_edlevel + age + male + p_socgrade + white_british,
-  family = binomial(link = "logit")
-)
-mod3glm <- glm(
-  data = raw11, voteConTwoParty ~ localEcon + p_gross_household +
-    econGenRetro + econPersonalRetro +
-    p_edlevel + age + male + p_socgrade + white_british,
-  family = binomial(link = "logit")
-)
-mod4glm <- glm(
-  data = raw15, voteConTwoParty ~ localEcon + p_gross_household + econGenRetro + econPersonalRetro +
-    p_edlevel + age + male + p_socgrade + white_british,
-  family = binomial(link = "logit")
-)
-mod5glm <- glm(
-  data = raw11, voteConTwoParty ~ localEcon * belongLocal + econGenRetro + econPersonalRetro +
-    p_edlevel + age + male + p_socgrade + p_gross_household + white_british,
-  family = binomial(link = "logit")
-)
-clust1 <- sandwich::vcovCL(mod1glm, raw11$pcon)
-mod1glm <- coeftest(mod1glm, vcov. = clust1)
-clust2 <- sandwich::vcovCL(mod2glm, raw15$pcon)
-mod2glm <- coeftest(mod2glm, vcov. = clust2)
-clust3 <- sandwich::vcovCL(mod3glm, raw11$pcon)
-mod3glm <- coeftest(mod3glm, vcov. = clust3)
-clust4 <- sandwich::vcovCL(mod4glm, raw15$pcon)
-mod4glm <- coeftest(mod4glm, vcov. = clust4)
-clust5 <- sandwich::vcovCL(mod5glm, raw11$pcon)
-mod5glm <- coeftest(mod5glm, vcov. = clust5)
-
-
-
-
-#DIFFERENT METHODS FOR LOGISITIC MODELS 
-
-clogit1 <- clogit(data = raw11, vote_con ~ localEcon +
-  p_edlevel + age + male + p_socgrade + p_gross_household + white_british +
-  strata(pcon))
-clogit2 <- clogit(data = raw15, vote_con ~ localEcon +
-  p_edlevel + age + male + p_socgrade + p_gross_household + white_british +
-  strata(pcon))
-clogit3 <- clogit(data = raw11, vote_con ~ localEcon + econGenRetro + econPersonalRetro +
-  p_edlevel + age + male + p_socgrade + p_gross_household + white_british +
-  strata(pcon))
-clogit4 <- clogit(data = raw15, vote_con ~ localEcon + econGenRetro + econPersonalRetro +
-  p_edlevel + age + male + p_socgrade + p_gross_household + white_british +
-  strata(pcon))
-clogit5 <- clogit(data = raw11, vote_con ~ localEcon * belongLocal + econGenRetro + econPersonalRetro +
-  p_edlevel + age + male + p_socgrade + p_gross_household + white_british +
-  strata(pcon))
-clogit6 <- clogit(data = raw11, vote_con ~ localEcon + belongLocal + econGenRetro + econPersonalRetro +
-  p_edlevel + age + male + p_socgrade + p_gross_household + white_british +
-  strata(pcon))
-
-#stargazer
-stargazer(clogit1, clogit3, clogit6, clogit5,
-  type = "text",
-  omit = c(
-    "p_edlevel", "age", "male", "p_socgrade", "p_gross_household",
-    "white_british", "Constant"
-  ),
-  dep.var.caption = "Vote Labour/Con (0/1)",
-  dep.var.labels.include = FALSE,
-  column.labels = c("2017", "2019", "2017", "2019", "2017", "2017"),
-  covariate.labels = c(
-    "Local econ", "Local belonging",
-    "General econ", "Personal econ", "Local econ * belong"
-  ),
-  no.space = TRUE,
-  label = "tab:vote_mods",
-  star.cutoffs = c(0.05, 0.01, 0.001),
-  header = FALSE,
-  model.numbers = TRUE, column.sep.width = "3pt",
-  omit.stat = c("wald", "lr", "logrank")
-)
 
 
 # make predicted values plots from the models
@@ -786,174 +694,10 @@ plot_local_vote_logit <- plot_mod3 + plot_mod5 +
 ggsave("drafts/paper1/figures/plot_local_vote.pdf")
 
 
-#############################
-## Context models: Are voters responsive to objective local context?
-# mod1_context: includes unemployment, annual change in median income, 20 year house price change
-# mod2_context: adds general and personal retrospective evaluations
-# unemployment and price change stay significant in both
-#############################
-mod1_context <- lmer(data = raw11, voteConTwoParty ~ median_per_change_2017 + rate2017 +
-  price_change20yr_scale +
-  p_edlevel + age + male + p_socgrade + white_british + p_gross_household)
-mod2_context <- glmer(data = raw11, voteConTwoParty ~ price_change20yr_scale + econGenRetro +
-  econPersonalRetro + rate2017 + median_per_change_2017 +
-  p_edlevel + age + male + p_socgrade + white_british + p_gross_household +
-  (1 | pcon), family = binomial(link = "logit"))
-
-class(mod1_context) <- "lmerMod"
-class(mod2_context) <- "lmerMod"
-stargazer(mod1_context, mod2_context,
-  type = "text",
-  omit = c(
-    "p_edlevel", "age", "male", "p_socgrade",
-    "white_british", "p_gross_household"
-  ),
-  star.cutoffs = c(0.05, 0.01, 0.001),
-  covariate.labels = c(
-    "Pct. annual change median income",
-    "Unemployment rate",
-    "House price 20-year pct. change",
-    "General econ eval",
-    "Personal econ eval"
-  ),
-  omit.stat = c("aic", "bic"),
-  dep.var.labels = "Vote choice (1-5, left-right)"
-)
-
-
-
-######################## 33
-#### LONDON ECON MODELS
-mod6 <- lmer(data = raw11, voteConTwoParty ~ londonLocalEcon +
-  p_edlevel + age + male + p_socgrade + white_british + (1 | pcon))
-mod7 <- lmer(data = raw15, voteConTwoParty ~ londonLocalEcon +
-  p_edlevel + age + male + p_socgrade + white_british + (1 | pcon))
-mod10 <- lmer(data = raw11, voteSpectrum ~ londonLocalEcon * belongLocal +
-  p_edlevel + age + male + p_socgrade + white_british + (1 | pcon))
-mod11 <- lmer(data = eng11, voteSpectrum ~ londonLocalEcon * belongLocal +
-  p_edlevel + age + male + p_socgrade + white_british + (1 | pcon))
-
-# change model classes
-class(mod6) <- "lmerMod"
-class(mod7) <- "lmerMod"
-class(mod8) <- "lmerMod"
-class(mod11) <- "lmerMod"
-class(mod10) <- "lmerMod"
-
-# Stargazer
-stargazer(mod6, mod7, mod10, mod11,
-  type = "latex", header = FALSE,
-  model.numbers = TRUE,
-  dep.var.labels.include = FALSE,
-  dep.var.caption = "Vote choice (1-5, right-left)",
-  no.space = TRUE,
-  column.labels = c("2017", "2019", "2017", "2017 (England)"),
-  title = "london_local_mod",
-  omit = c("p_edlevel", "age", "male", "p_socgrade", "white_british"),
-  covariate.labels = c("London-local diff", "Local belonging", "London-local * Local belonging"),
-  omit.stat = c("aic", "bic"),
-  star.cutoffs = c(0.05, 0.01, 0.001),
-  column.sep.width = "3pt"
-)
 
 
 
 
-####################################################################
-########## REDISTRIBUTION MODELS
-########################################################## 3
-
-red1 <- lmer(data = raw11, redistSelf ~ localEcon + p_gross_household +
-  p_edlevel + age + male + p_socgrade + white_british + (1 | pcon))
-red2 <- lmer(data = raw15, redistSelf ~ localEcon + p_gross_household +
-  p_edlevel + age + male + p_socgrade + white_british + (1 | pcon))
-red3 <- lmer(data = raw11, redistSelf ~ localEcon + econGenRetro + econPersonalRetro +
-  p_gross_household +
-  p_edlevel + age + male + p_socgrade + white_british + (1 | pcon))
-red4 <- lmer(data = raw15, redistSelf ~ localEcon + econGenRetro + econPersonalRetro +
-  p_gross_household +
-  p_edlevel + age + male + p_socgrade + white_british + (1 | pcon))
-red5 <- lmer(data = raw11, redistSelf ~ localEcon * belongLocal + econGenRetro + econPersonalRetro + p_gross_household +
-  p_edlevel + age + male + p_socgrade + white_british + (1 | pcon))
-class(red1) <- "lmerMod"
-class(red2) <- "lmerMod"
-class(red3) <- "lmerMod"
-class(red4) <- "lmerMod"
-class(red5) <- "lmerMod"
-
-stargazer(red1, red2, red3, red4, red5,
-  type = "latex",
-  star.cutoffs = c(0.05, 0.01, 0.001),
-  omit = c(
-    "p_gross_household", "p_edlevel", "age",
-    "male", "p_socgrade", "white_british", "Constant"
-  ),
-  label = "redist_mods",
-  omit.stat = c("aic", "bic"),
-  no.space = TRUE,
-  covariate.labels = c(
-    "Local econ", "Local belong", "General econ", "Personal econ",
-    "Econ * belong"
-  ),
-  dep.var.labels = "Redistribution attitudes (0-10, left-right)",
-  column.labels = c("2017", "2019", "2017", "2019", "2017")
-)
-
-########################################### 3
-#### immigration models
-######################################################## 33
-immig1 <- lmer(data = raw11, immigSelf ~ localEcon + p_gross_household +
-  p_edlevel + age + male + p_socgrade + white_british + (1 | pcon))
-immig2 <- lmer(data = raw15, immigSelf ~ localEcon + p_gross_household +
-  p_edlevel + age + male + p_socgrade + white_british + (1 | pcon))
-immig3 <- lmer(data = raw11, immigSelf ~ localEcon + econGenRetro + econPersonalRetro +
-  p_gross_household +
-  p_edlevel + age + male + p_socgrade + white_british + (1 | pcon))
-immig4 <- lmer(data = raw15, immigSelf ~ localEcon + econGenRetro + econPersonalRetro +
-  p_gross_household +
-  p_edlevel + age + male + p_socgrade + white_british + (1 | pcon))
-immig5 <- lmer(data = raw11, immigSelf ~ localEcon * belongLocal + econGenRetro + econPersonalRetro + p_gross_household +
-  p_edlevel + age + male + p_socgrade + white_british + (1 | pcon))
-class(immig1) <- "lmerMod"
-class(immig2) <- "lmerMod"
-class(immig3) <- "lmerMod"
-class(immig4) <- "lmerMod"
-class(immig5) <- "lmerMod"
-
-#stargazer
-stargazer(immig1, immig2, immig3, immig4, immig5,
-  type = "latex",
-  star.cutoffs = c(0.05, 0.01, 0.001),
-  omit = c(
-    "p_gross_household", "p_edlevel", "age",
-    "male", "p_socgrade", "white_british"
-  ),
-  omit.stat = c("aic", "bic"),
-  no.space = TRUE,
-  label = "tab:immig_mods",
-  covariate.labels = c(
-    "Local econ", "Local belong", " General econ", "Personal econ",
-    "Local econ * belong"
-  ),
-  dep.var.labels = "Immigration attitudes (0-10, higher-lower)",
-  column.labels = c("2017", "2019", "2017", "2019", "2017")
-)
-# plot the interaction from the last model
-immig_plot <- ggpredict(immig5, terms = c(
-  "localEcon", "belongLocal",
-  "econGenRetro [3]", "econPersonalRetro [3]"
-)) %>%
-  plot() +
-  labs(
-    x = "Local economic evaluation",
-    y = "Immigration preferences",
-    title = "Predicted immigration attitudes, by local economic evaluations"
-  ) +
-  guides(colour = guide_legend(title = str_wrap("Local belonging", 7)))
-ggsave("drafts/paper1/figures/immig_plot.pdf", immig_plot)
-
-# for people who belong local, better econ = more anti-immigrant
-# for people who don't belong local, better econ = less anti-immigrant
 
 
 # make plot of group belonging by category
@@ -987,55 +731,8 @@ ggsave("prospectus/figures/belonging_plot.pdf", belong_plot)
 
 
 # read in data from Understandng Society wave 8
-us <- read_dta("data/understanding_society/bhps/stata/stata13_se/ukhls_w8/h_indresp.dta")
-
-us <- us %>%
-  dplyr::select(starts_with("h_ethid"))
-
-us <- us %>%
-  rename(
-    language_home = h_ethid2,
-    language_english = h_ethid3,
-    religion_own = h_ethid4a, religion_raised = h_ethid4b,
-    region_live = h_ethid5, country_born = h_ethid6,
-    region_raised = h_ethid7, color = h_ethid14
-  )
-us[us < 0] <- NA
 
 
-# make the belonging plot again, but for the understanding society data
-self <- us %>%
-  select(-starts_with("h_")) %>%
-  pivot_longer(cols = language_home:color, names_to = "id", values_to = "value") %>%
-  filter(!is.na(value)) %>%
-  group_by(id) %>%
-  summarize(
-    n = n(), very_fairly = sum(value == 1 | value == 2),
-    very = sum(value == 1)
-  ) %>%
-  mutate(
-    prop_important = very_fairly / n,
-    prop_very_important = very / n,
-    var = case_when(
-      id == "religion_raised" ~ "Religion (raised)",
-      id == "religion_own" ~ "Religion (current)",
-      id == "region_raised" ~ "Region (raised)",
-      id == "region_live" ~ "Region (current)",
-      id == "language_home" ~ "Language (home)",
-      id == "language_english" ~ "English language",
-      id == "country_born" ~ "Country of birth",
-      id == "color" ~ "Skin color"
-    )
-  ) %>%
-  filter(id != "religion_raised") %>%
-  ggplot() +
-  geom_col(aes(x = prop_important, y = var)) +
-  xlab("Proportion very/fairly important") +
-  ylab("Category") +
-  ggtitle("Importance of social groupings to sense of self") +
-  theme_minimal()
-
-ggsave("prospectus/figures/ukhls_senseofself.pdf", self)
 
 
 #produce table of respondent sample size by region
@@ -1057,68 +754,77 @@ raw11 %>%
 
 
 
-#make map of region coefficients
-shp <- st_read("data/uk_geography/shapefiles/NUTS_Level_1_(January_2018)_Boundaries.shp")
-#change coordinate system to WGS 84
-shp <- st_transform(shp, "+proj=longlat +datum=WGS84")
+#make map of local belonging by region
 
-shp <- shp %>%
-  mutate(region = case_when(
-   nuts118cd == "UKC" ~ "North East",
-   nuts118cd == "UKD" ~ "North West",
-   nuts118cd == "UKE" ~ "Yorkshire and The Humber",
-   nuts118cd == "UKF" ~ "East Midlands",
-   nuts118cd == "UKG" ~ "West Midlands",
-   nuts118cd == "UKH" ~ "East of England",
-   nuts118cd == "UKI" ~ "London",
-   nuts118cd == "UKJ" ~ "South East",
-   nuts118cd == "UKK" ~"South West",
-   nuts118cd == "UKL" ~ "Wales",
-   nuts118cd == "UKM" ~ "Scotland",
-   nuts118cd == "UKN" ~ "Northern Ireland",
-  )) %>% 
-  filter(region != "Northern Ireland")
+#function to make map of anything by region 
+region_plot <- function(input_var, var_name){
+  
+  plot_df <- raw11 %>%
+    group_by(region) %>% 
+    summarize(var_name = mean({{input_var}}, na.rm = TRUE)) 
+  
+  plot_df <- left_join(shp, plot_df, by = "region")
+  mean <- raw11 %>% summarise(mean = mean({{input_var}}, na.rm = TRUE)) %>% 
+    pull()
+  plot <- plot_df %>%
+    ggplot() + 
+    geom_sf(aes(fill = var_name)) + 
+    theme(rect = element_blank(), 
+          axis.ticks = element_blank(),
+          axis.text.x = element_blank(),
+          axis.text.y = element_blank(),
+          legend.position = "right") + 
+    labs(fill = var_name) +
+    scale_fill_gradient2(low = c("blue"), mid = "white",
+                         high = "red", midpoint = mean)
+  return(plot)
+}
 
-
-region_df <- cbind(
-  names(fixef(mod1_belong_region)),
-  summary(mod1_belong_region)$coef[, 1],
-  summary(mod1_belong_region)$coef[, 2]
-) %>%
-  as_tibble() %>%
-  rename(region = V1, est = V2, sd = V3) %>%
-  filter(str_detect(region, "as.factor") == TRUE) %>%
-  mutate(
-    region = str_remove(region, "as.factor"),
-    region = str_remove(region, "region"),
-    region = str_remove(region, "\\(\\)"),
-    est = as.numeric(est), sd = as.numeric(sd),
-    upper = est + 1.96*sd, 
-    lower = est - 1.96*sd,
-    sig = case_when(
-      upper > 0 & lower > 0 ~ 1, 
-      upper > 0 & lower < 0 ~ 0,
-      upper < 0 & lower < 0 ~ 1
-    )
-  )
-
-shp_df <- left_join(shp, region_df, by = "region")
+belong_region_plot <- region_plot(input_var = belongRegion, 
+                                  var_name = "Regional belonging")
+belong_local_plot <- region_plot(input_var = belongLocal,
+                                 var_name = "Local belonging")
+belong_region_plot + belong_local_plot
 
 
 
+#look at relationship between strongest connection and localism
 
-region_map <- shp_df %>% 
-  rename(Coefficient = est) %>% 
-  ggplot() + 
-  geom_sf(aes(fill = Coefficient), color = NA) + 
-  scale_fill_viridis_c(option = "plasma") + 
-  theme(rect = element_blank(), 
-        axis.ticks = element_blank(), 
-        axis.text.x = element_blank(), 
-        axis.text.y = element_blank(  ),
-        legend.position = "left",
-        plot.margin = margin(0.5, 0.5, 0.5, 0.5, "cm")
-  ) + 
-  labs(caption = "Coefficients on region fixed effects in multilevel linear model regressing 
-  local belonging on demographic predictors. Coefficients on Scotland, 
-                  Wales, and London FEs are significant. Baseline is East Midlands.")
+mod_local <- lmer(data = raw11, strongestConnectionLocal ~ p_edlevel +
+                    age + male + p_socgrade + white_british +
+                    p_gross_household + (1 | pcon))
+mod_local_house <- lmer(data = raw11, strongestConnectionLocal ~ p_edlevel +
+                          age + male + p_socgrade + white_british +
+                          p_gross_household + own_house +
+                          (1 | pcon))
+mod_local_children <- lmer(data = raw11, strongestConnectionLocal ~ p_edlevel +
+                             age + male + p_socgrade + white_british +
+                             p_gross_household + children_in_household +
+                             (1 | pcon))
+
+#set model classes for stargazer
+class(mod_local) <- "lmerMod"
+class(mod_local_house) <- "lmerMod"
+class(mod_local_children) <- "lmerMod"
+
+#stargaze these to produce table 2 
+stargazer(mod_local, mod_local_house, mod_local_children,
+          type = "text", header = FALSE,
+          dep.var.labels.include = FALSE,
+          dep.var.caption = "Local belonging (0/1)",
+          no.space = TRUE,
+          model.numbers = TRUE,
+          label = "belong_local_mod",
+          title = "Local belonging (0/1)",
+          omit.stat = c("aic", "bic"),
+          star.cutoffs = c(0.05, 0.01, 0.001),
+          column.sep.width = "3pt"
+          # covariate.labels = c(
+          #   "Education", "Age", "Male", "Social grade",
+          #   "White British", "Household income",
+          #   "Owns house", "Children at home"
+          # )
+)
+
+
+
