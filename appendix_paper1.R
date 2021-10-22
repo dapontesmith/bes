@@ -1,3 +1,82 @@
+library(tidyverse)
+library(stargazer)
+library(lmerTest)
+
+setwd("C:/Users/dapon/Dropbox/Harvard/dissertation")
+df <- read_csv("data/bes/internet_panel/clean_data/wave11_clean.csv")
+
+#create subsets of data 
+df <- df %>%
+  mutate(localist_only = ifelse(
+    belongLocal == 1 & belongRegion == 0 &
+      belongMiddleClass == 0 & belongWorkingClass == 0 & 
+      belongGroup_5 == 0, 1, 0
+  )) 
+
+df_localists_only_and_non_localists <- df %>%
+  filter(localist_only == 1 | belongLocal == 0)
+
+df_all_localists <- df %>% filter(belongLocal == 1)
+
+df_localists_vs_everyone_else <- df
+
+demo_models <- function(df) { 
+  
+  mod_local <- lmer(data = df, localist_only ~ p_edlevel +
+                               age + male + p_socgrade + white_british +
+                               p_gross_household + (1 | pcon))
+  mod_local_house <- lmer(data = df, localist_only ~ p_edlevel +
+                                     age + male + p_socgrade + white_british +
+                                     p_gross_household + own_house +
+                                     (1 | pcon))
+  mod_local_children <- lmer(data = df, localist_only ~ p_edlevel +
+                                        age + male + p_socgrade + white_british +
+                                        p_gross_household + children_in_household +
+                                        (1 | pcon))
+  class(mod_local) <- "lmerMod"
+  class(mod_local_house) <- "lmerMod"
+  class(mod_local_children) <- "lmerMod"
+  
+  stargazer(mod_local, 
+            mod_local_house, mod_local_children,
+            type = "text", header = FALSE,
+            dep.var.labels.include = FALSE,
+            dep.var.caption = "Local belonging (0/1)",
+            no.space = TRUE,
+            model.numbers = TRUE,
+            label = "belong_local_mod",
+            title = "Local belonging (0/1)",
+            omit.stat = c("aic", "bic"),
+            star.cutoffs = c(0.05, 0.01, 0.001),
+            column.sep.width = "3pt",
+            covariate.labels = c(
+              "Education", "Age", "Male", "Social grade",
+              "White British", "Household income",
+              "Owns house", "Children at home"
+            )
+  )
+  
+}
+
+#model for only-localists vs. everyone else
+demo_models(df = df)
+
+#model for only-localists vs. only-non-localists
+demo_models(df = df_localists_only_and_non_localists)
+
+#model for only-localists vs. multiple-belongers
+demo_models(df = df_all_localists)
+
+
+
+
+
+
+
+
+
+
+#make belonging plot from understandign soceity data
 us <- read_dta("data/understanding_society/bhps/stata/stata13_se/ukhls_w8/h_indresp.dta")
 
 us <- us %>%
@@ -265,3 +344,4 @@ stargazer(clogit1, clogit3, clogit6, clogit5,
           model.numbers = TRUE, column.sep.width = "3pt",
           omit.stat = c("wald", "lr", "logrank")
 )
+
