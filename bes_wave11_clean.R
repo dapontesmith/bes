@@ -368,7 +368,17 @@ unem <- unem %>%
 
 df <- left_join(df, unem, by = c("LAD17CD" = "code"))
 
+#read in pcon unemployment data
+unem_pcon <- read_csv("data/uk_geography/pcon_data/pcon_unemployment_to_2010.csv")
 
+unem_pcon <- unem_pcon %>%
+  filter(DateOfDataset == "5/1/2017") %>%
+  dplyr::select(ONSConstID, UnempConstRate) %>% 
+  rename(unem_const_rate = UnempConstRate)
+
+df <- left_join(df, unem_pcon, by = c("ons_const_id" = "ONSConstID"))
+
+#do industrial concentration measures
 concen <- census_11 %>%
   dplyr::select(ons_const_id, pano, starts_with("industry")) %>%
   mutate(
