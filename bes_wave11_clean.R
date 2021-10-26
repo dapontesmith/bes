@@ -225,6 +225,10 @@ df <- df %>%
     p_hh_children == 6 ~ 1
   ))
 df$children_in_household <- ifelse((is.na(df$p_hh_children) | (df$p_hh_children %in% c(8,9))), NA, df$children_in_household )
+#variable for whether respondent reads local newspaper most often
+df$read_local <- ifelse(df$p_paper_read == 14, 1, 0)
+
+
 
 #read in local authority lookup
 locals <- read_csv("data/uk_geography/localauthorities_codes_dec2017.csv")
