@@ -368,15 +368,15 @@ unem <- unem %>%
 df <- left_join(df, unem, by = c("LAD17CD" = "code"))
 
 #read in pcon unemployment data
-unem_pcon <- read_csv("data/uk_geography/pcon_data/pcon_unemployment_to_2010.csv")
+unem_pcon_full <- read_csv("data/uk_geography/pcon_data/pcon_unemployment_to_2010.csv")
 
-unem_pcon <- unem_pcon %>%
+unem_pcon <- unem_pcon_full %>%
   filter(DateOfDataset == "5/1/2017") %>%
   dplyr::select(ONSConstID, UnempConstRate) %>% 
   rename(unem_const_rate = UnempConstRate)
 
 #get 1- and 5-year change in pcon unemployment
-unem_pcon_change <- unem_pcon %>%
+unem_pcon_change <- unem_pcon_full %>%
   filter(DateOfDataset %in% c("5/1/2012", "5/1/2016", "5/1/2017")) %>%
   dplyr::select(ONSConstID, DateOfDataset, UnempConstRate) %>% 
   pivot_wider(id_cols = ONSConstID, 
@@ -491,12 +491,47 @@ ethno <- ethno %>%
          ethno5 = ethno5W10) %>%
   dplyr::select(id, ethno1:ethno5)
 
-
-
-
 #join this to the ethnocentrism variables
-test <- left_join(df, ethno, by = "id")
+df <- left_join(df, ethno, by = "id")
+#get indices of constituency-level diversity
 
+#this is for a grouped version of ethnic populations
+hh_index_grouped <- census_11 %>%
+  dplyr::select(pano:population_density, starts_with("ethnicity")) %>%
+  as_tibble() %>%
+  pivot_longer(cols = starts_with("ethnicity"),
+               names_to = "ethnicity",
+               values_to = "pop") %>% 
+  filter((ethnicity %in% c("ethnicity_white",
+                           "ethnicity_mixed","ethnicity_asian",
+                           "ethnicity_black","ethnicity_other"))) %>%
+  group_by(ons_const_id, constituency_name, region) %>%
+  summarize(hh_index = Herfindahl(pop)) %>% 
+  arrange(hh_index)
+
+#this is a much finer-grained one 
+hh_index_disagg <- census_11 %>%
+  dplyr::select(pano:population_density, starts_with("ethnicity")) %>%
+  as_tibble() %>%
+  pivot_longer(cols = starts_with("ethnicity"),
+               names_to = "ethnicity",
+               values_to = "pop") %>% 
+  filter(!(ethnicity %in% c("ethnicity_white",
+                            "ethnicity_mixed","ethnicity_asian",
+                            "ethnicity_black","ethnicity_other"))) %>%
+  group_by(ons_const_id, constituency_name, region) %>%
+  summarize(hh_index = Herfindahl(pop)) %>% 
+  arrange(hh_index)
+
+#join them together, then join them to the datafarme
+hh_index <- left_join(hh_index_grouped, hh_index_disagg, by = c("ons_const_id","constituency_name","region"))
+df <- left_join(df, hh_index, by = c("ons_const_id","pano"))
+
+
+
+
+
+#write to csv
 write.csv(test, "data/bes/internet_panel/clean_data/wave11_clean.csv")
 
 
