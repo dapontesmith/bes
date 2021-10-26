@@ -6,7 +6,6 @@ library(sjlabelled)
 library(lfe)
 library(lmerTest)
 library(parlitools) #has various useful data for linking to BES 
-library(sf)
 library(DescTools)
 rm(list = ls())
 
@@ -376,6 +375,19 @@ unem_pcon <- unem_pcon %>%
   dplyr::select(ONSConstID, UnempConstRate) %>% 
   rename(unem_const_rate = UnempConstRate)
 
+#get 1- and 5-year change in pcon unemployment
+unem_pcon_change <- unem_pcon %>%
+  filter(DateOfDataset %in% c("5/1/2012", "5/1/2016", "5/1/2017")) %>%
+  dplyr::select(ONSConstID, DateOfDataset, UnempConstRate) %>% 
+  pivot_wider(id_cols = ONSConstID, 
+              names_from = DateOfDataset, values_from = UnempConstRate) %>% 
+  mutate(unem_const_1yr = `5/1/2017` - `5/1/2016`,
+         unem_const_5yr = `5/1/2017` - `5/1/2012`) %>%
+  dplyr::select(ONSConstID, unem_const_5yr, unem_const_1yr)
+
+#join them together, then join to the main dataframe
+unem_pcon <- left_join(unem_pcon, unem_pcon_change, by = "ONSConstID")
+
 df <- left_join(df, unem_pcon, by = c("ons_const_id" = "ONSConstID"))
 
 #do industrial concentration measures
@@ -474,7 +486,7 @@ ethno <- ethno %>%
   mutate(ethno1 = max(ethno1W10, na.rm = TRUE) + 1 - ethno1W10,
          ethno3 = max(ethno3W10, na.rm = TRUE) + 1 - ethno3W10,
          ethno6 = max(ethno6W10, na.rm = TRUE) + 1 - ethno6W10,
-         ethno4 = ethno4W10,
+         ethno4 =ethno4W10,
          ethno2 = ethno2W10,
          ethno5 = ethno5W10) %>%
   dplyr::select(id, ethno1:ethno5)
