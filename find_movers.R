@@ -6,6 +6,7 @@ library(MASS)
 library(parallel)
 library(foreach)
 library(doParallel)
+
 numCores = detectCores()
 registerDoParallel(numCores - 1)
 
@@ -13,6 +14,7 @@ setwd("C:/Users/dapon/Dropbox/Harvard/dissertation")
 df <- read_csv("data/bes/internet_panel/wave11_all_vars_with_msoas.csv") #USE THIS ONE ON PERSONAL COMPUTER
 #df <- read_csv("/Users/nod086/Downloads/wave11_all_vars_with_msoas.csv") #USE THIS ONE ON IQSS LAB COMPUTER
 #get tibble of df names 
+#df <- read_csv(data/bes/internet_panel/bes_wave_1_to_wave_20.csv) #FOR RUNNING ON ENTIRE DATASET
 names <- names(df) %>% as_tibble()
 #dplyr::select only the geographic variables
 df <- df %>%
@@ -77,7 +79,7 @@ unpack_multiple_movers <- function(result_output){
                 values_from = V2)  %>% 
     #rename columns to be interpretable
     rename_with(.fn = function(x) paste0("wave_", x), 
-                .cols = num_range("", 1:9) ) %>% 
+                .cols = num_range("", 1:12) ) %>% 
     rename(id = V1) %>% 
     #make variable for whether person ever moved
     mutate(moved = ifelse(!is.na(wave_1), 1, 0))
@@ -135,7 +137,7 @@ result_region <- foreach(i = 1:length(ids), .combine = rbind,
                          .packages = "tidyverse") %dopar% {
                            find_wave_moved(region_df, ids[i])
                          }
-moved_region_df <- unpack_multiple_movers(result_region) %>% 
+moved_region_df <- unpack_multiple_movers(result_region)
 
 
 
@@ -150,60 +152,111 @@ result_oslaua <- foreach(i = 1:length(ids), .combine = rbind,
                          .packages = "tidyverse") %dopar% {
                            find_wave_moved(region_df, ids[i])
                          }
-moved_oslaua_df <- unpack_multiple_movers(result_oslaua) %>% 
+moved_oslaua_df <- unpack_multiple_movers(result_oslaua) 
 
 
-#join all of them together
+#function for renaming columns to join together 
+rename_for_join <- function(df, suffix){
+  df_out <- df %>% 
+    rename_with(.fn = function(x) paste0(x, suffix),
+                .cols = num_range("wave_", 1:12)) %>% 
+  return(df_out)
+}
+
+#apply to the dfs
+moved_msoa_df <- rename_for_join(moved_msoa_df, "_msoa") %>% rename(moved_msoa = moved)
+moved_pcon_df <- rename_for_join(moved_pcon_df, "_pcon") %>% rename(moved_pcon = moved)
+moved_region_df <- rename_for_join(moved_region_df, "_region") %>% rename(moved_region = moved)
+moved_oslaua_df <- rename_for_join(moved_oslaua_df, "_oslaua") %>% rename(moved_oslaua = moved)
+
+
 join <- left_join(moved_msoa_df, moved_pcon_df, by = "id") %>% 
   left_join(., moved_region_df, by = 'id') %>% 
   left_join(moved_oslaua_df, by = 'id')
 
-#remove unnecessary objects, then save the workspace 
-rm(switch_oslaua)
-rm(pivot)
-rm(ever_switch)
-rm(labels)
+#then save the workspace 
+#save.image()
+#write to csv
+write.csv(join, "data/bes/internet_panel/wave11_moves.csv")
+
 save.image()
-
-
 #load the data 
 load("data/bes/internet_panel/find_movers.Rdata")
 
-join <- as.data.frame(join)
+dat <- read.csv("data/bes/internet_panel/wave11_moves.csv") %>% 
+  as_tibble()
 
 #make variable for whether respondent moved prior to wave 11
-join <- join %>% 
+dat <- dat %>% 
   mutate(moved_msoa_wave11 = case_when(
-    wave_moved_msoa_1 == 11 ~ 1, 
-    wave_moved_msoa_2 == 11 ~ 1,
-    wave_moved_msoa_3 == 11 ~ 1,
-    wave_moved_msoa_4 == 11 ~ 1,
-    wave_moved_msoa_5 == 11 ~ 1,
+    wave_1_msoa <= 11 ~ 1, 
+    wave_2_msoa <= 11 ~ 1,
+    wave_3_msoa <= 11 ~ 1,
+    wave_4_msoa<=11 ~ 1,
+    wave_5_msoa<=11 ~ 1,
     TRUE ~ 0
   ),moved_pcon_wave11 = case_when(
-    wave_moved_pcon_1 == 11 ~ 1, 
-    wave_moved_pcon_2 == 11 ~ 1,
-    wave_moved_pcon_3 == 11 ~ 1,
-    wave_moved_pcon_4 == 11 ~ 1,
-    wave_moved_pcon_5 == 11 ~ 1,
+    wave_1_pcon <= 11 ~ 1, 
+    wave_2_pcon <= 11 ~ 1,
+    wave_3_pcon <= 11 ~ 1,
+    wave_4_pcon <= 11 ~ 1,
+    wave_5_pcon <= 11 ~ 1,
     TRUE ~ 0 ),
   moved_oslaua_wave11 = case_when(
-    wave_moved_oslaua_1 == 11 ~ 1, 
-    wave_moved_oslaua_2 == 11 ~ 1,
-    wave_moved_oslaua_3 == 11 ~ 1,
-    wave_moved_oslaua_4 == 11 ~ 1,
-    wave_moved_oslaua_5 == 11 ~ 1,
+    wave_1_oslaua <= 11 ~ 1, 
+    wave_2_oslaua <= 11 ~ 1,
+    wave_3_oslaua <= 11 ~ 1,
+    wave_4_oslaua <= 11 ~ 1,
+    wave_5_oslaua <= 11 ~ 1,
     TRUE ~ 0),
   moved_region_wave11 = case_when(
-    wave_moved_region_1 == 11 ~ 1, 
-    wave_moved_region_2 == 11 ~ 1,
-    wave_moved_region_3 == 11 ~ 1,
-    wave_moved_region_4 == 11 ~ 1,
-    wave_moved_region_5 == 11 ~ 1,
+    wave_1_region <= 11 ~ 1, 
+    wave_2_region <= 11 ~ 1,
+    wave_3_region <= 11 ~ 1,
+    wave_4_region <= 11 ~ 1,
+    wave_5_region <= 11 ~ 1,
     TRUE ~ 0))
 
 
-sum(join$moved_msoa_wave11 == 1)
-sum(join$moved_oslaua_wave11 == 1)
-sum(join$moved_pcon_wave11 == 1)
-sum(join$moved_region_wave11 == 1)
+sum(dat$moved_msoa_wave11 == 1)
+sum(dat$moved_oslaua_wave11 == 1)
+sum(dat$moved_pcon_wave11 == 1)
+sum(dat$moved_region_wave11 == 1)
+
+
+#read in the 
+raw11 <- read_csv("data/bes/internet_panel/clean_data/wave11_clean.csv")
+raw11 <- left_join(raw11, dat, by = "id")
+
+
+mod1 <- lm(data = raw11, vote_con ~ unem_const_rate*moved_pcon_wave11 + p_gross_household +
+               p_edlevel + age + male + p_socgrade + white_british + as.factor(region))
+
+summary(mod1)
+View(dat)
+
+
+#get variable for how long movers lived in constituency prior to wave11 
+movers_pcon <- dat %>% 
+  filter(moved_pcon == 1 & moved_pcon_wave11 == 1) %>% 
+  dplyr::select(id, ends_with("pcon")) 
+
+#get most recent wave in which someone moved 
+tenure_df <- movers_pcon %>%
+  pivot_longer(cols = wave_1_pcon:wave_10_pcon,
+              names_to = "wave", values_to = "value") %>% 
+  group_by(id) %>% 
+  summarize(max_wave = max(value, na.rm = TRUE)) %>% 
+  #get only people who moved before wave 11
+  filter(max_wave <= 11) %>% 
+  mutate(tenure_pcon_wave11 = 11-max_wave)
+
+test <- right_join(raw11, tenure_df, by = "id")
+
+
+mod1 <- glm(data = test, voteConTwoParty ~ tenure_pcon_wave11*localEcon + p_gross_household +
+             p_edlevel + age + male + p_socgrade + white_british)
+summary(mod1)
+
+
+
