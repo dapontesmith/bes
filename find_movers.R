@@ -9,9 +9,9 @@ library(doParallel)
 numCores = detectCores()
 registerDoParallel(numCores - 1)
 
-#setwd("C:/Users/dapon/Dropbox/Harvard/dissertation")
-#df <- read.csv("data/bes/internet_panel/wave11_got_localism_all_vars_with_msoas.csv") USE THIS ONE ON PERSONAL COMPUTER
-df <- read_csv("/Users/nod086/Downloads/wave11_all_vars_with_msoas.csv") #USE THIS ONE ON IQSS LAB COMPUTER
+setwd("C:/Users/dapon/Dropbox/Harvard/dissertation")
+df <- read_csv("data/bes/internet_panel/wave11_all_vars_with_msoas.csv") #USE THIS ONE ON PERSONAL COMPUTER
+#df <- read_csv("/Users/nod086/Downloads/wave11_all_vars_with_msoas.csv") #USE THIS ONE ON IQSS LAB COMPUTER
 #get tibble of df names 
 names <- names(df) %>% as_tibble()
 #dplyr::select only the geographic variables
@@ -32,7 +32,7 @@ find_wave_moved <- function(dataframe, respondent_id){
     #if someone has NA, that meanas they didn't take the wave - 
     #we assume they didn't move between the last wave they took and the NA wave,
     #so we use "fill" to impute down (is this the right direction?)
-    fill(value, .direction = "down") %>%
+    fill(value, .direction = "up") %>%
     #find the MSOA in the previous wave 
     mutate(previous_value = dplyr::lag(value),
            #create indicator for the wave in which person newly moved to a place
@@ -56,64 +56,31 @@ find_wave_moved <- function(dataframe, respondent_id){
       moved <- 0
       wave_moved <- NA 
     }
-    
   }
-  return(list( wave_moved, moved))
+  return(list( respondent_id, wave_moved, moved))
 } 
 
 #write function to unpack the result of parallelized find_wave_moved function
-#this deals with cases in which people moved multiple times (up to 5, but adaptable to more)
 unpack_multiple_movers <- function(result_output){
   
-  #get moved vector 
-  moved_vector <- result[,2]
-  
-  #define empty holders
-  wave_moved_1 <- NULL
-  wave_moved_2 <- NULL
-  wave_moved_3 <- NULL
-  wave_moved_4 <- NULL
-  wave_moved_5 <- NULL
-  for (i in 1:nrow(result)){
-    row <- result[i,][[1]]
-    if (length(row) == 1){
-      wave_moved_1[i] <- row[1]
-      wave_moved_2[i] <- NA 
-      wave_moved_3[i] <- NA 
-      wave_moved_4[i] <- NA 
-      wave_moved_5[i] <- NA 
-      
-    } else if(length(row) == 2) {
-      wave_moved_1[i] <- row[1]
-      wave_moved_2[i] <- row[2]
-      wave_moved_3[i] <- NA 
-      wave_moved_4[i] <- NA 
-      wave_moved_5[i] <- NA 
-    } else if(length(row) == 3){
-      wave_moved_1[i] <- row[1]
-      wave_moved_2[i] <- row[2]
-      wave_moved_3[i] <- row[3]
-      wave_moved_4[i] <- NA 
-      wave_moved_5[i] <- NA 
-    } else if (length(row) == 4){
-      wave_moved_1[i] <- row[1]
-      wave_moved_2[i] <- row[2]
-      wave_moved_3[i] <- row[3]
-      wave_moved_4[i] <- row[4]
-      wave_moved_5[i] <- NA
-    } else{
-      wave_moved_1[i] <- row[1]
-      wave_moved_2[i] <- row[2] 
-      wave_moved_3[i] <- row[3]
-      wave_moved_4[i] <- row[4]
-      wave_moved_5[i] <- row[5]
-    }
-  }
-  
-  #put them together into a dataframe to return
-  df_out <- cbind(ids, moved_vector, wave_moved_1, wave_moved_2, 
-                  wave_moved_3, wave_moved_4, 
-                  wave_moved_5) %>% as_tibble() 
+  #takes as input the output of the find_wave_moved function that results from %dopar%
+  df_out <- result_output %>%
+    as_tibble() %>% 
+    #unnest the ugly df-list-thing
+    unnest(cols = c(V1, V2, V3)) %>% 
+    group_by(V1) %>% 
+    #this gives us something to use as names_from in the id
+    mutate(id = 1:n()) %>% 
+    ungroup() %>% 
+    #now do the unpacking with magic from chris 
+    pivot_wider(id_cols = V1, names_from = id, 
+                values_from = V2)  %>% 
+    #rename columns to be interpretable
+    rename_with(.fn = function(x) paste0("wave_", x), 
+                .cols = num_range("", 1:9) ) %>% 
+    rename(id = V1) %>% 
+    #make variable for whether person ever moved
+    mutate(moved = ifelse(!is.na(wave_1), 1, 0))
   
   return(df_out)
   
@@ -130,17 +97,12 @@ msoa_df <- df %>% dplyr::select(id, p_msoa11W10,p_msoa11W11, p_msoa11W12, p_msoa
   mutate(wave = str_remove(wave, "p_msoa11W"))
 
 #run function for MSOAs
-#run the process in parallel
+#run the process in parallel]
 result_msoa <- foreach(i = 1:length(ids), .combine = rbind,
                   .packages = "tidyverse")  %dopar% {
                     find_wave_moved(msoa_df, ids[i])
                   }
 moved_msoa_df <- unpack_multiple_movers(result_msoa)
-moved_msoa_df <- moved_msoa_df %>% 
-  #rename for eventual joining
-  rename(id = ids, moved_msoa = moved_vector)
-names(moved_msoa_df) <- str_replace(names(moved_msoa_df),
-                                    'wave_moved','wave_moved_msoa')
 
 
 
@@ -158,11 +120,7 @@ result_pcon <- foreach(i = 1:length(ids), .combine = rbind,
                     find_wave_moved(pcon_df, ids[i])
                   }
 moved_pcon_df <- unpack_multiple_movers(result_pcon)
-moved_pcon_df <- moved_pcon_df %>% 
-  #rename for eventual joining
-  rename(id = ids, moved_pcon = moved_vector)
-names(moved_pcon_df) <- str_replace(names(moved_pcon_df),
-                                    'wave_moved','wave_moved_pcon')
+
 
 #prepare region data for find_wave_moved function 
 region_df <- df %>% 
@@ -178,10 +136,6 @@ result_region <- foreach(i = 1:length(ids), .combine = rbind,
                            find_wave_moved(region_df, ids[i])
                          }
 moved_region_df <- unpack_multiple_movers(result_region) %>% 
-  #rename for eventual joining
-  rename(id = ids, moved_region = moved_vector)
-names(moved_region_df) <- str_replace(names(moved_region_df),
-                                    'wave_moved','wave_moved_region')
 
 
 
@@ -197,20 +151,59 @@ result_oslaua <- foreach(i = 1:length(ids), .combine = rbind,
                            find_wave_moved(region_df, ids[i])
                          }
 moved_oslaua_df <- unpack_multiple_movers(result_oslaua) %>% 
-  #rename for eventual joining
-  rename(id = ids, moved_oslaua = moved_vector)
-names(moved_oslaua_df) <- str_replace(names(moved_oslaua_df),
-                                    'wave_moved','wave_moved_oslaua')
+
 
 #join all of them together
 join <- left_join(moved_msoa_df, moved_pcon_df, by = "id") %>% 
   left_join(., moved_region_df, by = 'id') %>% 
   left_join(moved_oslaua_df, by = 'id')
 
+#remove unnecessary objects, then save the workspace 
 rm(switch_oslaua)
 rm(pivot)
 rm(ever_switch)
 rm(labels)
-
 save.image()
 
+
+#load the data 
+load("data/bes/internet_panel/find_movers.Rdata")
+
+join <- as.data.frame(join)
+
+#make variable for whether respondent moved prior to wave 11
+join <- join %>% 
+  mutate(moved_msoa_wave11 = case_when(
+    wave_moved_msoa_1 == 11 ~ 1, 
+    wave_moved_msoa_2 == 11 ~ 1,
+    wave_moved_msoa_3 == 11 ~ 1,
+    wave_moved_msoa_4 == 11 ~ 1,
+    wave_moved_msoa_5 == 11 ~ 1,
+    TRUE ~ 0
+  ),moved_pcon_wave11 = case_when(
+    wave_moved_pcon_1 == 11 ~ 1, 
+    wave_moved_pcon_2 == 11 ~ 1,
+    wave_moved_pcon_3 == 11 ~ 1,
+    wave_moved_pcon_4 == 11 ~ 1,
+    wave_moved_pcon_5 == 11 ~ 1,
+    TRUE ~ 0 ),
+  moved_oslaua_wave11 = case_when(
+    wave_moved_oslaua_1 == 11 ~ 1, 
+    wave_moved_oslaua_2 == 11 ~ 1,
+    wave_moved_oslaua_3 == 11 ~ 1,
+    wave_moved_oslaua_4 == 11 ~ 1,
+    wave_moved_oslaua_5 == 11 ~ 1,
+    TRUE ~ 0),
+  moved_region_wave11 = case_when(
+    wave_moved_region_1 == 11 ~ 1, 
+    wave_moved_region_2 == 11 ~ 1,
+    wave_moved_region_3 == 11 ~ 1,
+    wave_moved_region_4 == 11 ~ 1,
+    wave_moved_region_5 == 11 ~ 1,
+    TRUE ~ 0))
+
+
+sum(join$moved_msoa_wave11 == 1)
+sum(join$moved_oslaua_wave11 == 1)
+sum(join$moved_pcon_wave11 == 1)
+sum(join$moved_region_wave11 == 1)
