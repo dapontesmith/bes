@@ -59,6 +59,9 @@ eng11 <- raw11 %>%
   filter(country.y == "England") %>%
   filter(region != "Wales")
 
+newspaper_readers <- raw11 %>%
+  filter(p_paper_read != 16)
+
 #make version of data for vote models for fixed effect
 raw11_merge <- raw11 %>%
   dplyr::select(pcon, p_edlevel, white_british, p_gross_household, age, male,
@@ -145,7 +148,7 @@ mod1_belong_demo <- lmer(data = raw11, belongLocal ~ p_gross_household +
   (1 | pcon), weights = wt_full_)
 
 mod1_belong_region <- lmer(data = raw11, belongLocal ~ p_gross_household +
-  p_edlevel + age + male + p_socgrade + white_british +
+  p_edlevel + age + male + p_socgrade + white_british + belongRegion + 
   as.factor(region) + (1 | pcon))
 
 mod1_belong_party <- lmer(data = raw11, belongLocal ~ p_gross_household +
@@ -154,8 +157,8 @@ mod1_belong_party <- lmer(data = raw11, belongLocal ~ p_gross_household +
 
 mod1_belong_context <- lmer(data = raw11, belongLocal ~ p_gross_household + p_edlevel +
   age + male + p_socgrade + white_british + (1 | pcon) +
-  median_income_scale + scale(price_change5yr) + rate2016 +
-  population_density + constituency_type.x, weights = wt_full_)
+  median_income_scale + scale(price_change5yr) + scale(unem_const_rate) +
+  scale(population_density)  + scale(ethnicity_white_british) + constituency_type.x)
 
 
 #####################################
@@ -171,14 +174,21 @@ context_plot <- cbind(
   mutate(var = str_remove(var, "\\("), var = str_remove(var, "\\)")) %>%
   filter(var %in% c(
     "median_income_scale", "scaleprice_change5yr",
-    "rate2016", "population_density", "constituency_type.xCounty"
+    "rate2016", "population_density", "constituency_type.xCounty",
+    "scalehh_index_disagg", "scaleunem_const_rate",
+    "scalehh_index_grouped", "scaleethnicity_white_british",
+    "scalepopulation_density"
   )) %>%
   mutate(var_name = case_when(
     var == "median_income_scale" ~ "Median income",
     var == "scaleprice_change5yr" ~ "5-yr pct. chg. house prices",
-    var == "rate2016" ~ "Unemployment rate (2016)",
+    var == "scaleunem_const_rate" ~ "Unemployment rate",
     var == "population_density" ~ "Density",
-    var == "constituency_type.xCounty" ~ "County constituency"
+    var == "constituency_type.xCounty" ~ "County constituency",
+    var == "scalehh_index_disagg" ~ "Herfindahl index",
+    var == "scalehh_index_grouped" ~ "Herfindahl index",
+    var == "scaleethnicity_white_british" ~ "% White British",
+    var == "scalepopulation_density" ~ "Density"
   ), est = as.numeric(est), sd = as.numeric(sd)) %>%
   mutate(
     conf.low = est - 1.96 * sd,
@@ -192,9 +202,9 @@ context_plot <- cbind(
   labs(
     x = "Variable", y = "Estimate",
     title = "Localism and elements of local context",
-    caption = "Multilevel linear models, random effects at constituency level.
-       Models include but do not report demographic covariates.
-       Median income and house-price variables are scaled to have mean of 0 and s.d. of 1.
+    caption = "Multilevel linear models, random effects at constituency level. Models include but 
+    do not report demographic covariates. Median income, density, unemployment, and 
+    house-price variables are scaled to have mean of 0 and s.d. of 1.
        Baseline for the county constituency variable is borough."
   )
 ggsave("drafts/paper1/figures/context_plot.pdf", context_plot)
@@ -589,12 +599,43 @@ stargazer(mod1, mod2, mod3, mod4, mod5, mod6,
   star.cutoffs = c(0.05, 0.01, 0.001),
   header = FALSE,
   font.size = "small",
-  model.numbers = TRUE, column.sep.width = "3pt",
+  model.nsumbers = TRUE, column.sep.width = "3pt",
   column.labels = c(
     "2017", "2019", "2017", "2019",
     "2017", "2017"
   )
 )
+
+
+slide_table <- stargazer(mod1, mod2, mod3, mod4, mod5, mod6,
+                         type = "latex",
+                         omit = c(
+                           "p_edlevel", "age", "male", "p_socgrade", "p_gross_household",
+                           "white_british", "Constant"
+                         ),
+                         dep.var.caption = "Vote Conservative (0/1)",
+                         dep.var.labels.include = FALSE,
+                         label = "tab:vote_mods",
+                         covariate.labels = c(
+                           "Local econ", "Local belong",
+                           "General econ", "Personal econ",
+                           "Local econ * belong"
+                         ),
+                         column.sep.width = "10pt",
+                         no.space = TRUE,
+                         star.cutoffs = c(0.05, 0.01, 0.001),
+                         header = FALSE,
+                         font.size = "normalsize",
+                         model.numbers = TRUE,
+                         omit.stat = c("aic","bic","ll"),
+                         column.labels = c(
+                           "2017", "2019", "2017", "2019",
+                           "2017", "2017"
+                         ),
+                         out = "drafts/paper1/figures/vote_mods.tex"
+)
+cat(slide_table, file = "drafts/paper1/figures/vote_mods.tex")
+
 
 
 # Table on asset-based localism and vote choice
@@ -675,7 +716,7 @@ plot_mod3 <- plot(ggpredict(mod3, terms = c(
     y = "Predicted probability"
   ) +
   theme(title = element_blank())
-plot_mod5 <- plot(ggpredict(mod5, terms = c("localEcon", "belongLocal", "
+plot_mod6 <- plot(ggpredict(mod6, terms = c("localEcon", "belongLocal", "
                                                econGenRetro [3]", "white_british [1]"))) +
   labs(x = "Local economic evaluation (low - high)") +
   theme(
@@ -684,7 +725,7 @@ plot_mod5 <- plot(ggpredict(mod5, terms = c("localEcon", "belongLocal", "
   ) +
   guides(colour = guide_legend(title = str_wrap("Local belonging", 7)))
 
-plot_local_vote_logit <- plot_mod3 + plot_mod5 +
+plot_local_vote_logit <- plot_mod3 + plot_mod6 +
   plot_annotation(
     title = "Predicted probability of Conservative vote",
     caption = "Probabilities predicted from random-effects linear regression.
@@ -773,7 +814,8 @@ region_plot <- function(input_var, var_name){
           axis.ticks = element_blank(),
           axis.text.x = element_blank(),
           axis.text.y = element_blank(),
-          legend.position = "right") + 
+          legend.position = "right", 
+          plot.margin = margin(0.1, 0, 0.1, 0, "cm")) + 
     labs(fill = var_name) +
     scale_fill_gradient2(low = c("blue"), mid = "white",
                          high = "red", midpoint = mean)
