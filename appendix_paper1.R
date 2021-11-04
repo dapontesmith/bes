@@ -1,6 +1,8 @@
 library(tidyverse)
 library(stargazer)
 library(lmerTest)
+library(xtable)
+library(reshape2)
 
 setwd("C:/Users/dapon/Dropbox/Harvard/dissertation")
 df <- read_csv("data/bes/internet_panel/clean_data/wave11_clean.csv")
@@ -13,6 +15,9 @@ df <- df %>%
       belongGroup_5 == 0, 1, 0
   )) 
 
+sum(df$localist_only, na.rm = TRUE) 
+#1614 people are localist only 
+
 df_localists_only_and_non_localists <- df %>%
   filter(localist_only == 1 | belongLocal == 0)
 
@@ -20,19 +25,19 @@ df_all_localists <- df %>% filter(belongLocal == 1)
 
 df_localists_vs_everyone_else <- df
 
-demo_models <- function(df) { 
+demo_models <- function(dat) { 
   
-  mod_local <- lmer(data = df, localist_only ~ p_edlevel +
+  mod_local <- lmer(data = dat, localist_only ~ p_edlevel +
                                age + male + p_socgrade + white_british +
                                p_gross_household + (1 | pcon))
-  mod_local_house <- lmer(data = df, localist_only ~ p_edlevel +
+  mod_local_house <- lmer(data = dat, localist_only ~ p_edlevel +
                                      age + male + p_socgrade + white_british +
-                                     p_gross_household + own_house +
+                                     p_gross_household +  own_house +
                                      (1 | pcon))
-  mod_local_children <- lmer(data = df, localist_only ~ p_edlevel +
+  mod_local_children <- lmer(data = dat, localist_only ~ p_edlevel +
                                         age + male + p_socgrade + white_british +
                                         p_gross_household + children_in_household +
-                                        (1 | pcon))
+                                        (1 |  pcon))
   class(mod_local) <- "lmerMod"
   class(mod_local_house) <- "lmerMod"
   class(mod_local_children) <- "lmerMod"
@@ -59,22 +64,149 @@ demo_models <- function(df) {
 }
 
 #model for only-localists vs. everyone else
-demo_models(df = df)
+demo_models(dat = df) #results unchanged from main paper
 
 #model for only-localists vs. only-non-localists
-demo_models(df = df_localists_only_and_non_localists)
+demo_models(dat = df_localists_only_and_non_localists) 
+#results mostly unchanged from main paper - child effect quite strong
 
 #model for only-localists vs. multiple-belongers
-demo_models(df = df_all_localists)
+demo_models(dat = df_all_localists)
+#only gender, homeowneship, and children remain significant
+
+#print correlation matrix of belonging
+cormat <- df %>%
+  dplyr::select(belongLocal, belongRegion, 
+                belongWorkingClass, belongMiddleClass, belongGroup_5) %>%
+  cor(., use = "complete.obs") %>% 
+  as_tibble() %>%
+  rename(Local = belongLocal, Region = belongRegion, 
+         `Middle class` = belongMiddleClass, `Working class` = belongWorkingClass,
+         Ethnicity = `belongGroup_5`) %>%
+  mutate(variable = c("Local","Region","Working Class","Middle Class","Ethnicity")) %>% 
+  dplyr::select(variable, everything()) 
+
+cormat <- df %>% 
+  dplyr::select(belongLocal, belongRegion,
+                belongWorkingClass, belongMiddleClass, belongGroup_5) %>% 
+  rename(Local = belongLocal, Region = belongRegion, 
+         `Middle class` = belongMiddleClass, `Working class` = belongWorkingClass,
+         Ethnicity = `belongGroup_5` ) %>% 
+  as_tibble()
+cormat <- cormat %>% 
+  cor(., use = 'complete.obs')
+
+melted_cormat <- melt(cormat)
+names(melted_cormat) <- c("Var1","Var2","value")
 
 
+get_lower_tri<-function(cormat){
+  cormat[upper.tri(cormat)] <- NA
+  return(cormat)
+}
+# Get upper triangle of the correlation matrix
+get_upper_tri <- function(cormat){
+  cormat[lower.tri(cormat)]<- NA
+  return(cormat)
+}
 
+reorder_cormat <- function(cormat){
+  # Use correlation between variables as distance
+  dd <- as.dist((1-cormat)/2)
+  hc <- hclust(dd)
+  cormat <-cormat[hc$order, hc$order]
+}
 
+cormat <- reorder_cormat(cormat)
+upper_tri <- get_upper_tri(cormat)
+# Melt the correlation matrix
+melted_cormat <- melt(upper_tri, na.rm = TRUE)
+# Create a ggheatmap
+ggheatmap <- ggplot(melted_cormat, aes(Var2, Var1, fill = value))+
+  geom_tile(color = "white")+
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1,1), space = "Lab", 
+                       name="Pearson\nCorrelation") +
+  theme_minimal()+ # minimal theme
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+                                   size = 12, hjust = 1))+
+  coord_fixed()
 
+ggheatmap + 
+  geom_tile(aes(Var2, Var1, fill = round(value, 2)), color = "white")+
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1,1), space = "Lab", 
+                       name="Pearson\nCorrelation") +
+  theme_minimal()+ 
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, 
+                                   size = 12, hjust = 1))+
+  coord_fixed() + 
+  labs(x = "Variable 1", y = "Variable 2 ") + 
+  geom_text(aes(Var2, Var1, label = value), color = "black", size = 4) + theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.border = element_blank(),
+    panel.background = element_blank(),
+    axis.ticks = element_blank(),
+    legend.justification = c(1, 0),
+    legend.position = c(0.6, 0.7),
+    legend.direction = "horizontal")+
+  guides(fill = guide_colorbar(barwidth = 7, barheight = 1,
+                               title.position = "top", title.hjust = 0.5))
+  
+corrplot <- ggcorrplot(cormat) + 
+  ggtitle("Correlation Matrix of Group Belonging")
+ggsave( "drafts/paper1/figures/group_corrplot.pdf", corrplot)
 
+#run model on regional belonging
+region_mod <- function(dat){
+  
+  mod_local <- lmer(data = dat, belongRegion ~ p_edlevel +
+                    age + male + p_socgrade + white_british +
+                    p_gross_household + (1 | pcon))
+mod_local_house <- lmer(data = dat, belongRegion ~ p_edlevel +
+                          age + male + p_socgrade + white_british +
+                          p_gross_household +  own_house +
+                          (1 | pcon))
+mod_local_children <- lmer(data = dat, belongRegion ~ p_edlevel +
+                             age + male + p_socgrade + white_british +
+                             p_gross_household + children_in_household +
+                             (1 |  pcon))
+class(mod_local) <- "lmerMod"
+class(mod_local_house) <- "lmerMod"
+class(mod_local_children) <- "lmerMod"
 
+stargazer(mod_local, 
+          mod_local_house, mod_local_children,
+          type = "text", header = FALSE,
+          dep.var.labels.include = FALSE,
+          dep.var.caption = "Local belonging (0/1)",
+          no.space = TRUE,
+          model.numbers = TRUE,
+          label = "belong_local_mod",
+          title = "Local belonging (0/1)",
+          omit.stat = c("aic", "bic"),
+          star.cutoffs = c(0.05, 0.01, 0.001),
+          column.sep.width = "3pt",
+          covariate.labels = c(
+            "Education", "Age", "Male", "Social grade",
+            "White British", "Household income",
+            "Owns house", "Children at home"
+          )
+)
 
+}
+region_mod(dat = df)
+#education not significant, ethnicity is now significant 
+#homeownership not signifcant
 
+mod_local_region <- lmer(data = df, belongLocal ~ p_edlevel + belongRegion + 
+                           belongWorkingClass + belongMiddleClass + belongGroup_5 + 
+                    age + male + p_socgrade + white_british +
+                    p_gross_household + (1 | pcon))
+class(mod_local_region) <- "lmerMod"
+stargazer(mod_local_region, type = "text")
 
 #make belonging plot from understandign soceity data
 us <- read_dta("data/understanding_society/bhps/stata/stata13_se/ukhls_w8/h_indresp.dta")
