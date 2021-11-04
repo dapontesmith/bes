@@ -227,6 +227,22 @@ df$children_in_household <- ifelse((is.na(df$p_hh_children) | (df$p_hh_children 
 #variable for whether respondent reads local newspaper most often
 df$read_local <- ifelse(df$p_paper_read == 14, 1, 0)
 
+#CREATE SCALE FOR LOCAL BELONGIN
+#THIS IS EQUAL TO LOCAL BELONGING - AVG NUMBER OF OTHER GROUPS PERSON BELONGS TO 
+num_ids_not_local <- df %>% 
+  dplyr::select(id, starts_with("belong")) %>% 
+  dplyr::select(id, belongRegion, belongMiddleClass, belongWorkingClass,
+                belongGroup_5) %>% 
+  pivot_longer(cols = belongRegion:belongGroup_5, 
+               names_to = "group", values_to = "value") %>% 
+  group_by(id) %>% 
+  summarize(sum_group = sum(value, na.rm = TRUE), 
+            n = n(),
+            avg_id = sum_group / n)
+
+df <- left_join(df, num_ids_not_local, by = "id")
+df$belongLocal_scale <- df$belongLocal - df$avg_id
+
 
 
 #read in local authority lookup
@@ -506,8 +522,7 @@ hh_index_grouped <- census_11 %>%
                            "ethnicity_mixed","ethnicity_asian",
                            "ethnicity_black","ethnicity_other"))) %>%
   group_by(ons_const_id, constituency_name, region) %>%
-  summarize(hh_index = Herfindahl(pop)) %>% 
-  arrange(hh_index)
+  summarize(hh_index_grouped = Herfindahl(pop)) 
 
 #this is a much finer-grained one 
 hh_index_disagg <- census_11 %>%
@@ -520,19 +535,18 @@ hh_index_disagg <- census_11 %>%
                             "ethnicity_mixed","ethnicity_asian",
                             "ethnicity_black","ethnicity_other"))) %>%
   group_by(ons_const_id, constituency_name, region) %>%
-  summarize(hh_index = Herfindahl(pop)) %>% 
-  arrange(hh_index)
+  summarize(hh_index_disagg = Herfindahl(pop))
 
 #join them together, then join them to the datafarme
 hh_index <- left_join(hh_index_grouped, hh_index_disagg, by = c("ons_const_id","constituency_name","region"))
-df <- left_join(df, hh_index, by = c("ons_const_id","pano"))
+df <- left_join(df, hh_index, by = c("ons_const_id"))
 
 
 
 
 
 #write to csv
-write.csv(test, "data/bes/internet_panel/clean_data/wave11_clean.csv")
+write.csv(df, "data/bes/internet_panel/clean_data/wave11_clean.csv")
 
 
 
