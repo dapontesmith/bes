@@ -207,7 +207,7 @@ context_plot <- cbind(
     house-price variables are scaled to have mean of 0 and s.d. of 1.
        Baseline for the county constituency variable is borough."
   )
-ggsave("drafts/paper1/figures/context_plot.pdf", context_plot)
+ggsave("drafts/paper1/figures/context_plotscale.pdf", context_plot)
 
 
 
@@ -268,7 +268,7 @@ party_plot <- cbind(
        caption = "Coefficients on party fixed effects in linear multilevel regressions of local
       belonging on demographic predictors. Baseline party is the Conservatives.",
        title = "Partisan predictors of local belonging")
-ggsave("drafts/paper1/figures/party_plot.pdf", party_plot)
+ggsave("drafts/paper1/figures/party_plotscale.pdf", party_plot)
 
 #make map of region coefficients
 
@@ -317,7 +317,7 @@ region_map <- left_join(shp, region_df, by = "region") %>%
   labs(caption = "Coefficients on region fixed effects in multilevel linear model regressing 
   local belonging on demographic predictors. Coefficients on Scotland, 
                   Wales, and London FEs are significant. Baseline is East Midlands.")
-ggsave("drafts/paper1/figures/region_map.pdf", region_map)
+ggsave("drafts/paper1/figures/region_mapscale.pdf", region_map)
 
 region_party_plot <- region_map + party_plot + plot_annotation(
   title = "Regional and partisan correlates of local belonging"
@@ -327,7 +327,7 @@ region_party_plot <- region_map + party_plot + plot_annotation(
   # propensity of members of the region or party to identify with the local community, above the baseline.
   # Errors bars represent 95 percent confidence intervals."
 )
-ggsave("drafts/paper1/figures/region_party_plot.pdf", region_party_plot)
+ggsave("drafts/paper1/figures/region_party_plotscale.pdf", region_party_plot)
 
 
 
@@ -431,7 +431,7 @@ efficacy_plot <- effic %>%
     local belonging. Models include constituency random effects and party fixed effects."
   )
 ggsave(
-  "drafts/paper1/figures/efficacy_plot.pdf",
+  "drafts/paper1/figures/efficacy_plotscale.pdf",
   efficacy_plot
 )
 
@@ -534,7 +534,7 @@ cosmo_plot <- brit_plot + warm_plot +
     Scale on Britishness models is 1-4; scale on feeling thermometers is 0-100.
     Models control for respondent characteristics and local unemployment and % white."
   )
-ggsave("drafts/paper1/figures/cosmo_plot.pdf", cosmo_plot)
+ggsave("drafts/paper1/figures/cosmo_plotscale.pdf", cosmo_plot)
 
 
 # stargaze the results as well
@@ -599,36 +599,28 @@ class(mod6) <- "lmerMod"
 #stargazer vote models 
 stargazer(mod1, mod2, mod3, mod4, mod5, mod6,
           type = "text",
-          omit = c(
-            "p_edlevel", "age", "male", "p_socgrade", "p_gross_household",
-            "white_british", "Constant"
-          ),
+          omit = c( "p_edlevel", "age", "male", "p_socgrade", "p_gross_household",
+            "white_british", "Constant"),
           dep.var.caption = "Vote Conservative (0/1)",
           dep.var.labels.include = FALSE,
           label = "tab:vote_mods",
-          covariate.labels = c(
-            "Local econ", "Local belong",
+          covariate.labels = c("Local econ", "Local belong",
             "General econ", "Personal econ",
-            "Local econ * belong"
-          ),
+            "Local econ * belong"),
           no.space = TRUE,
           star.cutoffs = c(0.05, 0.01, 0.001),
           header = FALSE,
           font.size = "small",
           model.nsumbers = TRUE, column.sep.width = "3pt",
-          column.labels = c(
-            "2017", "2019", "2017", "2019",
-            "2017", "2017"
+          column.labels = c("2017", "2019", "2017", "2019",
+            "2017", "2017")
           )
-)
 
 
 slide_table <- stargazer(mod1, mod2, mod3, mod4, mod5, mod6,
                          type = "latex",
-                         omit = c(
-                           "p_edlevel", "age", "male", "p_socgrade", "p_gross_household",
-                           "white_british", "Constant"
-                         ),
+                         omit = c("p_edlevel", "age", "male", "p_socgrade", "p_gross_household",
+                           "white_british", "Constant"),
                          dep.var.caption = "Vote Conservative (0/1)",
                          dep.var.labels.include = FALSE,
                          label = "tab:vote_mods",
@@ -681,9 +673,9 @@ stargazer(mod_home_2017_2, mod_home_2019_2,
           dep.var.caption = "Vote Conservative (0/1)",
           dep.var.labels.include = FALSE,
           label = "tab:house_mods",
-          # covariate.labels = c("Local econ","Own house",
-          #                    "General econ","Personal econ",
-          #                   "Local econ * own house"),
+           covariate.labels = c("Local econ","Own house",
+                              "General econ","Personal econ",
+                             "Local econ * own house"),
           no.space = TRUE,
           star.cutoffs = c(0.05, 0.01, 0.001),
           header = FALSE,
@@ -716,7 +708,7 @@ plot_mod_home <- plot_mod_home_2017 +
     Probabilities are for white British, male respondent with neutral general
     economic evaluation and mean values of all other covariates."
   )
-ggsave("drafts/paper1/figures/plot_mod_home.pdf", plot_mod_home)
+ggsave("drafts/paper1/figures/plot_mod_homescale.pdf", plot_mod_home)
 
 
 
@@ -748,7 +740,7 @@ plot_local_vote_logit <- plot_mod3 + plot_mod6 +
     Probabilities are for white British, male respondent with neutral general
     economic evaluation and mean values of all other covariates."
   )
-ggsave("drafts/paper1/figures/plot_local_vote.pdf")
+ggsave("drafts/paper1/figures/plot_local_votescale.pdf")
 
 
 
@@ -784,7 +776,7 @@ belong_plot <- belongs %>%
   xlab("Proportion") +
   ylab("Group")
 
-ggsave("prospectus/figures/belonging_plot.pdf", belong_plot)
+ggsave("prospectus/figures/belonging_plotscale.pdf", belong_plot)
 
 
 # read in data from Understandng Society wave 8
