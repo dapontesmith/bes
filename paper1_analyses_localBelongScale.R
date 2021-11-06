@@ -536,6 +536,7 @@ cosmo_plot <- brit_plot + warm_plot +
   )
 ggsave("drafts/paper1/figures/cosmo_plot.pdf", cosmo_plot)
 
+
 # stargaze the results as well
 stargazer(mod_warm_syrian, mod_warm_indian, mod_warm_eastern, mod_customs, mod_christian,
           type = "text",
@@ -549,6 +550,21 @@ stargazer(mod_warm_syrian, mod_warm_indian, mod_warm_eastern, mod_customs, mod_c
           header = FALSE
 )
 
+#immigration models 
+immig_mod <- lmer(data = raw11, immigSelf ~ belongLocal_scale + 
+                    p_gross_household + p_edlevel + age + male + p_socgrade + 
+                    white_british + (1 | pcon)) 
+class(immig_mod) <- "lmerMod"
+stargazer(immig_mod, 
+          keep = "belongLocal_scale", 
+          dep.var.labels.include = FALSE, 
+          header = FALSE, covariate.labels = "Local belonging",
+          dep.var.caption = "Immigration preference (high-low)",
+          no.space = TRUE, 
+          star.cutoffs = c(0.05, 0.01, 0.001),
+          omit.stat = c("aic","bic","ll"),
+          add.lines = list(c("Demographic controls", "Yes")),
+          type = "text")
 
 
 #################################################################
@@ -582,7 +598,7 @@ class(mod6) <- "lmerMod"
 
 #stargazer vote models 
 stargazer(mod1, mod2, mod3, mod4, mod5, mod6,
-          type = "latex",
+          type = "text",
           omit = c(
             "p_edlevel", "age", "male", "p_socgrade", "p_gross_household",
             "white_british", "Constant"
