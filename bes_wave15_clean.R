@@ -16,8 +16,9 @@ df <- raw %>%
          spendHealth, spendPensions, spendUnemp, deficitReduce, howToReduceDeficit, 
          regionEcon, localEcon, londonEcon, richEcon, poorEcon, emEcon, wbEcon, mcEcon, 
          wcEcon, selfEcon, anyUni, pano, country, age, gender, gor, pcon, oslaua,
-         p_housing, p_marital, p_socgrade, p_work_stat, p_job_sector, p_gross_household, 
-         p_gross_personal, p_ethnicity, p_edlevel, starts_with("p_past"))
+         p_housing, p_marital, p_socgrade, p_work_stat, p_job_sector, p_gross_household, p_hh_children,
+         p_gross_personal, p_ethnicity, p_edlevel, starts_with("p_past"), 
+         starts_with('immig'))
 df[df == 9999 | df == 997] <- NA 
 
 
@@ -35,6 +36,7 @@ df$voteConUkip <- ifelse(df$generalElectionVote %in% c(1, 6), 1,
                            ifelse(is.na(df$generalElectionVote), NA, 0))
 df$p_socgrade <- ifelse(df$p_socgrade > 6, NA, df$p_socgrade)
 df$immigEcon <- ifelse(df$immigEcon > 7, NA, df$immigEcon)
+df$immigSelf <- max(df$immigSelf, na.rm = TRUE) - df$immigSelf
 
 #peripheralness variables
 df <- df %>% 
@@ -56,6 +58,11 @@ df <- df %>%
            TRUE ~ vote
          ), voteConTwoParty = ifelse(voteConTwoParty != 1 & voteConTwoParty != 0, 
                                      NA, voteConTwoParty),
+         voteCon = case_when(
+           vote == 1 ~ 1, 
+           vote %in% c(2, 3, 4, 5, 6, 7, 8, 9) ~ 0,
+           TRUE ~ vote
+         ), 
          londonBetterSelf = case_when(
            londonSelfEcon > -1 ~ 1, 
            londonSelfEcon < 0 ~ 0, 
@@ -69,7 +76,6 @@ df <- df %>%
            londonRegionEcon < 0 ~ 0, 
            TRUE ~ londonRegionEcon
          ), #rescale redist self so higher = more pro-redistribution
-         redistSelf = max(redistSelf, na.rm = TRUE) - redistSelf,
          p_ethnicity = as.numeric(p_ethnicity),
          white = case_when(
            p_ethnicity %in% c(1, 2) ~ 1, 
@@ -80,6 +86,18 @@ df <- df %>%
            p_ethnicity > 1 & p_ethnicity < 16 ~ 0, 
            TRUE ~ p_ethnicity
          ))
+df <- df %>% 
+  mutate(p_hh_children = as.numeric(p_hh_children),
+         children_in_household = case_when(
+           p_hh_children == 1 ~ 0,
+           p_hh_children == 2 ~ 1, 
+           p_hh_children == 3 ~ 1, 
+           p_hh_children == 4 ~ 1,
+           p_hh_children == 5 ~ 1, 
+           p_hh_children == 6 ~ 1
+         ))
+df$children_in_household <- ifelse((is.na(df$p_hh_children) | (df$p_hh_children %in% c(8,9))), NA, df$children_in_household )
+#variable for whether respondent reads local newspaper most often
 #read in geographic variables
 geo <- read_csv("data/bes/internet_panel/bes_wave15_geography.csv") %>% 
   rename(region_name = gor, pcon_name = pcon, lad_name = oslaua)
