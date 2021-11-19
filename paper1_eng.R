@@ -126,7 +126,7 @@ class(mod_local_children) <- "lmerMod"
 
 #stargaze these to produce table 2 
 stargazer(mod_local, mod_local_house, mod_local_children,
-          type = "text", header = FALSE,
+          type = "latex", header = FALSE,
           dep.var.labels.include = FALSE,
           dep.var.caption = "Local belonging (0/1)",
           no.space = TRUE,
@@ -577,14 +577,14 @@ class(mod6) <- "lmerMod"
 
 #stargazer vote models 
 stargazer(mod1, mod2, mod3, mod4, mod5, mod6,
-          type = "text",
+          type = "latex",
           omit = c(
             "p_edlevel", "age", "male", "p_socgrade", "p_gross_household",
             "white_british", "Constant"
           ),
           dep.var.caption = "Vote Conservative (0/1)",
           dep.var.labels.include = FALSE,
-          label = "tab:vote_mods",
+          label = "tab:vote_mods_eng",
           covariate.labels = c(
             "Local econ", "Local belong",
             "General econ", "Personal econ",
