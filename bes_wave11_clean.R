@@ -241,7 +241,9 @@ num_ids_not_local <- df %>%
             avg_id = sum_group / n)
 
 df <- left_join(df, num_ids_not_local, by = "id")
-df$belongLocal_scale <- df$belongLocal - df$avg_id
+df$belongLocal_scale <- ifelse(df$belongLocal == 1, 
+                               df$belongLocal - df$avg_id, 
+                               df$belongLocal)
 
 
 
