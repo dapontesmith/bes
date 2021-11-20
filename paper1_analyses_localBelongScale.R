@@ -124,12 +124,12 @@ class(mod_local_children) <- "lmerMod"
 
 #stargaze these to produce table 2 
 stargazer(mod_local, mod_local_house, mod_local_children,
-          type = "text", header = FALSE,
+          type = "latex", header = FALSE,
           dep.var.labels.include = FALSE,
           dep.var.caption = "Local belonging (0/1)",
           no.space = TRUE,
           model.numbers = TRUE,
-          label = "belong_local_mod",
+          label = "belong_local_mod_scale",
           title = "Local belonging (0/1)",
           omit.stat = c("aic", "bic"),
           star.cutoffs = c(0.05, 0.01, 0.001),
@@ -597,8 +597,8 @@ class(mod6) <- "lmerMod"
 
 
 #stargazer vote models 
-stargazer(mod1, mod2, mod3, mod4, mod5, mod6,
-          type = "text",
+stargazer(mod5, mod6,
+          type = "latex",
           omit = c( "p_edlevel", "age", "male", "p_socgrade", "p_gross_household",
             "white_british", "Constant"),
           dep.var.caption = "Vote Conservative (0/1)",
@@ -611,39 +611,9 @@ stargazer(mod1, mod2, mod3, mod4, mod5, mod6,
           star.cutoffs = c(0.05, 0.01, 0.001),
           header = FALSE,
           font.size = "small",
-          model.nsumbers = TRUE, column.sep.width = "3pt",
-          column.labels = c("2017", "2019", "2017", "2019",
-            "2017", "2017")
+          model.numbers = TRUE, column.sep.width = "3pt",
+          column.labels = c("2017", "2017")
           )
-
-
-slide_table <- stargazer(mod1, mod2, mod3, mod4, mod5, mod6,
-                         type = "latex",
-                         omit = c("p_edlevel", "age", "male", "p_socgrade", "p_gross_household",
-                           "white_british", "Constant"),
-                         dep.var.caption = "Vote Conservative (0/1)",
-                         dep.var.labels.include = FALSE,
-                         label = "tab:vote_mods",
-                         covariate.labels = c(
-                           "Local econ", "Local belong",
-                           "General econ", "Personal econ",
-                           "Local econ * belong"
-                         ),
-                         column.sep.width = "10pt",
-                         no.space = TRUE,
-                         star.cutoffs = c(0.05, 0.01, 0.001),
-                         header = FALSE,
-                         font.size = "normalsize",
-                         model.numbers = TRUE,
-                         omit.stat = c("aic","bic","ll"),
-                         column.labels = c(
-                           "2017", "2019", "2017", "2019",
-                           "2017", "2017"
-                         ),
-                         out = "drafts/paper1/figures/vote_mods.tex"
-)
-cat(slide_table, file = "drafts/paper1/figures/vote_mods.tex")
-
 
 
 # Table on asset-based localism and vote choice
