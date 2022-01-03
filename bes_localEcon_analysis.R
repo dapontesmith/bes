@@ -201,7 +201,7 @@ context_plot <- cbind(
   theme_minimal() +
   labs(
     x = "Variable", y = "Estimate",
-    title = "Localism and elements of local context",
+    #title = "Localism and elements of local context",
     caption = "Multilevel linear models, random effects at constituency level. Models include but 
     do not report demographic covariates. Median income, density, unemployment, and 
     house-price variables are scaled to have mean of 0 and s.d. of 1.
@@ -264,10 +264,10 @@ party_plot <- cbind(
   coord_flip() +
   geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
   theme_minimal() +
-  labs(x = "Party", y = "Estimate",
-       caption = "Coefficients on party fixed effects in linear multilevel regressions of local
-      belonging on demographic predictors. Baseline party is the Conservatives.",
-       title = "Partisan predictors of local belonging")
+  labs(x = "Party", y = "Estimate")
+       #caption = "Coefficients on party fixed effects in linear multilevel regressions of local
+      #belonging on demographic predictors. Baseline party is the Conservatives.",
+       #title = "Partisan predictors of local belonging")
 ggsave("drafts/paper1/figures/party_plot.pdf", party_plot)
 
 #make map of region coefficients
@@ -319,8 +319,8 @@ region_map <- left_join(shp, region_df, by = "region") %>%
                   Wales, and London FEs are significant. Baseline is East Midlands.")
 ggsave("drafts/paper1/figures/region_map.pdf", region_map)
 
-region_party_plot <- region_map + party_plot + plot_annotation(
-  title = "Regional and partisan correlates of local belonging"
+region_party_plot <- region_plot + party_plot + plot_annotation(
+  #title = "Regional and partisan correlates of local belonging"
   # caption = "Results from regressions with fixed effects by region and party identification respectively.
   # Both regressions include demographic covariates. The baseline region is the
   # East Midlands; the baseline party is Conservative. Each point represents the estimated
@@ -334,16 +334,16 @@ ggsave("drafts/paper1/figures/region_party_plot.pdf", region_party_plot)
 #RUN EFFICACY MODELS 
 mod_effic1 <- lmer(data = raw11, belongLocal ~ p_gross_household + p_edlevel +
   age + male + white_british + p_socgrade + as.factor(partyIdName) +
-  efficacyPolCare + (1 | pcon), weights = wt_full_)
+  efficacyPolCare + (1 | pcon))
 mod_effic2 <- lmer(data = raw11, belongLocal ~ p_gross_household + p_edlevel +
   age + male + white_british + p_socgrade + as.factor(partyIdName) +
-  efficacyNoMatter + (1 | pcon), weights = wt_full_)
+  efficacyNoMatter + (1 | pcon))
 mod_effic3 <- lmer(data = raw11, belongLocal ~ p_gross_household +
   p_edlevel + p_socgrade + white_british + as.factor(partyIdName) +
-  efficacyVoteEffort + (1 | pcon), weights = wt_full_)
+  efficacyVoteEffort + (1 | pcon))
 mod_effic4 <- lmer(data = raw11, belongLocal ~ p_gross_household + p_edlevel +
   age + male + white_british + p_socgrade + as.factor(partyIdName) +
-  satDemUK + (1 | pcon), weights = wt_full_)
+  satDemUK + (1 | pcon))
 class(mod_effic1) <- "lmerMod"
 class(mod_effic2) <- "lmerMod"
 class(mod_effic3) <- "lmerMod"
@@ -351,7 +351,7 @@ class(mod_effic4) <- "lmerMod"
 
 #stargaze efficacy models 
 stargazer(mod_effic1, mod_effic2, mod_effic3, mod_effic4,
-  type = "text",
+  type = "latex",
   omit = c(
     "p_edlevel", "age", "male", "p_socgrade", "p_gross_household",
     "white_british", "Constant",
@@ -372,7 +372,10 @@ stargazer(mod_effic1, mod_effic2, mod_effic3, mod_effic4,
   no.space = TRUE,
   star.cutoffs = c(0.05, 0.01, 0.001),
   header = FALSE,
-  model.numbers = TRUE, column.sep.width = "3pt"
+  model.numbers = TRUE, column.sep.width = "3pt",
+  omit.stat = c("ll","aic","bic"),
+  notes = "Multilevel linear models with random intercepts by parliamentary constituency. First three dependent variables are 1-5 scale ranging from 'strongly disagree' to 'strongly agree'; democratic satisfaction variable ranges from 1-4, omitting neutral category. Models include but do not report standard set of demographic covariates as well as controls for party identification.",
+  title = "Voter localism and political efficacy"
 )
 
 
@@ -449,10 +452,10 @@ mod_warm_syrian <- lmer(data = raw11, warmSyrians ~ p_gross_household + p_edleve
   ethnicity_white_british + rate2017 + belongLocal + (1 | pcon), weights = wt_full_)
 mod_warm_indian <- lmer(data = raw11, warmIndian ~ p_gross_household + p_edlevel +
   age + male + white_british + p_socgrade +
-  belongLocal + ethnicity_white_british + rate2017 + belongLocal + (1 | pcon), weights = wt_full_)
+  belongLocal + ethnicity_white_british + rate2017 + belongLocal + (1 | pcon))
 mod_warm_eastern <- lmer(data = raw11, warmEastern ~ p_gross_household + p_edlevel +
   age + male + white_british + p_socgrade +
-  belongLocal + ethnicity_white_british + rate2017 + belongLocal + (1 | pcon), weights = wt_full_)
+  belongLocal + ethnicity_white_british + rate2017 + belongLocal + (1 | pcon))
 mod_customs <- lmer(data = raw11, britCustoms ~ p_gross_household +
   p_edlevel + age + male + white_british + p_socgrade +
   belongLocal + ethnicity_white_british + rate2017 + belongLocal + (1 | pcon))
@@ -460,11 +463,17 @@ mod_christian <- lmer(data = raw11, britChristian ~ p_gross_household +
   p_edlevel + age + male + white_british + p_socgrade +
   belongLocal + ethnicity_white_british + rate2017 + belongLocal + (1 | pcon))
 
+mod_immig <- lmer(data = raw11, immigSelf ~ p_gross_household +
+                        p_edlevel + age + male + white_british + p_socgrade +
+                        belongLocal + ethnicity_white_british + rate2017 + belongLocal +
+                        as.factor(partyIdName) + (1 | pcon))
+
 class(mod_warm_syrian) <- "lmerMod"
 class(mod_warm_indian) <- "lmerMod"
 class(mod_warm_eastern) <- "lmerMod"
 class(mod_customs) <- "lmerMod"
 class(mod_christian) <- "lmerMod"
+class(mod_immig) <- "lmerMod"
 
 #use efficacy estimate function
 coef1 <- get_effic_est(mod_name = mod_warm_indian, var_name = "belongLocal")
@@ -537,16 +546,17 @@ cosmo_plot <- brit_plot + warm_plot +
 ggsave("drafts/paper1/figures/cosmo_plot.pdf", cosmo_plot)
 
 # stargaze the results as well
-stargazer(mod_warm_syrian, mod_warm_indian, mod_warm_eastern, mod_customs, mod_christian,
+stargazer(mod_warm_syrian, mod_warm_indian, mod_warm_eastern, mod_customs, mod_christian, mod_immig,
   type = "text",
   keep = c("belongLocal", "ethnicity_white_british", "rate2017"),
   dep.var.labels.include = FALSE,
   covariate.labels = c("% White British", "Unemployment Rate", "Local belonging"),
-  column.labels = c("Syrians", "Indians", "East Europeans", "Customs", "Christianity"),
+  column.labels = c("Syrians", "Indians", "East Europeans", "Customs", "Christianity", "Immigration"),
   no.space = TRUE,
   star.cutoffs = c(0.05, 0.01, 0.001),
   label = "tab:mod_cosmopolitan",
-  header = FALSE
+  header = FALSE,
+  omit.stat = c("ll","aic","bic")
 )
 
 
@@ -605,36 +615,6 @@ stargazer(mod1, mod2, mod3, mod4, mod5, mod6,
     "2017", "2017"
   )
 )
-
-
-slide_table <- stargazer(mod1, mod2, mod3, mod4, mod5, mod6,
-                         type = "latex",
-                         omit = c(
-                           "p_edlevel", "age", "male", "p_socgrade", "p_gross_household",
-                           "white_british", "Constant"
-                         ),
-                         dep.var.caption = "Vote Conservative (0/1)",
-                         dep.var.labels.include = FALSE,
-                         label = "tab:vote_mods",
-                         covariate.labels = c(
-                           "Local econ", "Local belong",
-                           "General econ", "Personal econ",
-                           "Local econ * belong"
-                         ),
-                         column.sep.width = "10pt",
-                         no.space = TRUE,
-                         star.cutoffs = c(0.05, 0.01, 0.001),
-                         header = FALSE,
-                         font.size = "normalsize",
-                         model.numbers = TRUE,
-                         omit.stat = c("aic","bic","ll"),
-                         column.labels = c(
-                           "2017", "2019", "2017", "2019",
-                           "2017", "2017"
-                         ),
-                         out = "drafts/paper1/figures/vote_mods.tex"
-)
-cat(slide_table, file = "drafts/paper1/figures/vote_mods.tex")
 
 
 
@@ -723,7 +703,7 @@ plot_mod6 <- plot(ggpredict(mod6, terms = c("localEcon", "belongLocal", "
     axis.title.y = element_blank(),
     title = element_blank()
   ) +
-  guides(colour = guide_legend(title = str_wrap("Local belonging", 7)))
+  guides(colour = guide_legend(title = str_wrap("Local belonging", 7))) 
 
 plot_local_vote_logit <- plot_mod3 + plot_mod6 +
   plot_annotation(
@@ -734,7 +714,7 @@ plot_local_vote_logit <- plot_mod3 + plot_mod6 +
   )
 ggsave("drafts/paper1/figures/plot_local_vote.pdf")
 
-
+ggsave("drafts/paper1/figures/plot_local_vote_interact.pdf", plot_mod6)
 
 
 
@@ -764,7 +744,7 @@ belong_plot <- belongs %>%
   ggplot() +
   geom_col(aes(x = prop, y = variable)) +
   theme_minimal() +
-  ggtitle("Proportion of respondents with sense of group belonging") +
+  #ggtitle("Proportion of respondents with sense of group belonging") +
   xlab("Proportion") +
   ylab("Group")
 
@@ -784,11 +764,11 @@ raw11 %>%
   group_by(region) %>%
   summarize(n = n()) %>%
   filter(!is.na(region)) %>%
-  rename(Region = region, N = n) %>%
+  rename(Region = region, `Number of respondents` = n) %>%
   adorn_totals("row") %>%
   xtable(
     include.rownames = FALSE,
-    caption = "Respondents by region in basic specification",
+    caption = "Respondents by region in 2017 survey (wave 11)",
     label = "respondents_by_region"
   )
 
