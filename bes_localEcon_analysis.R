@@ -117,30 +117,49 @@ mod_local_children <- lmer(data = raw11, belongLocal ~ p_edlevel +
   p_gross_household + children_in_household +
   (1 | pcon))
 
+
 #set model classes for stargazer
 class(mod_local) <- "lmerMod"
 class(mod_local_house) <- "lmerMod"
 class(mod_local_children) <- "lmerMod"
 
 #stargaze these to produce table 2 
-stargazer(mod_local, mod_local_house, mod_local_children,
-  type = "text", header = FALSE,
+stargazer(#mod_local, mod_local_house,
+  mod_local_children,
+  type = "latex", header = FALSE,
   dep.var.labels.include = FALSE,
-  dep.var.caption = "Local belonging (0/1)",
+  dep.var.caption = "Local belonging",
   no.space = TRUE,
   model.numbers = TRUE,
   label = "belong_local_mod",
-  title = "Local belonging (0/1)",
-  omit.stat = c("aic", "bic"),
+  title = "Demographic correlates of voter localism",
+  omit.stat = c("aic", "bic","ll"),
   star.cutoffs = c(0.05, 0.01, 0.001),
   column.sep.width = "3pt",
     covariate.labels = c(
       "Education", "Age", "Male", "Social grade",
       "White British", "Household income",
-      "Owns house", "Children at home"
+     # "Owns house", 
+      "Children at home"
     )
 )
 
+#get the after-controlling correlation between homeownership and local belonging
+library(ppcor)
+
+df <- raw11 %>% 
+  dplyr::select(belongLocal, p_edlevel, age, male, 
+                p_socgrade, white_british, p_gross_household,
+                own_house) %>% na.omit()
+
+pcor(df)$estimate %>% 
+  as_tibble()
+
+
+corr <- summary(mod_local_house)$coefficients %>%
+  as_tibble() %>% 
+  tail(n=1) %>% 
+  pull(Estimate)
 
 #run more complex models - house, region, party, remainer, policy
 mod1_belong_demo <- lmer(data = raw11, belongLocal ~ p_gross_household +
@@ -148,7 +167,7 @@ mod1_belong_demo <- lmer(data = raw11, belongLocal ~ p_gross_household +
   (1 | pcon), weights = wt_full_)
 
 mod1_belong_region <- lmer(data = raw11, belongLocal ~ p_gross_household +
-  p_edlevel + age + male + p_socgrade + white_british + belongRegion + 
+  p_edlevel + age + male + p_socgrade + white_british + 
   as.factor(region) + (1 | pcon))
 
 mod1_belong_party <- lmer(data = raw11, belongLocal ~ p_gross_household +
@@ -162,6 +181,43 @@ mod1_belong_context <- lmer(data = raw11, belongLocal ~ p_gross_household + p_ed
 
 
 #####################################
+#full stargazer results for mod1_belong_region
+class(mod1_belong_region) <- "lmerMod"
+class(mod1_belong_party) <- "lmerMod"
+stargazer(mod1_belong_region, type = "latex",
+          covariate.labels = c("Income","Education","Age","Male",
+                               "Social grade","White British",
+                               "Region = East of England",
+                               "Region = London", "Region = North East",
+                               "Region = North West", "Region = Scotland",
+                               "Region = South East","Region = South West","Region = Wales", 
+                               "Region = West Midlands","Region = Yorkshire and the Humber"),
+          dep.var.caption = "Local belonging",
+          dep.var.labels.include = FALSE,
+          label = "tab:region_mod_full",
+          title = "Regional correlates of local belonging",
+          no.space = TRUE,
+          star.cutoffs = c(0.05, 0.01, 0.001),
+          font.size = "small",
+          header = FALSE )
+
+
+stargazer(mod1_belong_region, type = "latex",
+          covariate.labels = c("Income","Education","Age","Male",
+                               "Social grade","White British",
+                               "Region = East of England",
+                               "Region = London", "Region = North East",
+                               "Region = North West", "Region = Scotland",
+                             "Region = South East","Region = South West","Region = Wales", 
+                              "Region = West Midlands","Region = Yorkshire and the Humber"),
+          dep.var.caption = "Local belonging",
+          dep.var.labels.include = FALSE,
+          label = "tab:party_mod_full",
+          title = "Partisan correlates of local belonging",
+          no.space = TRUE,
+          star.cutoffs = c(0.05, 0.01, 0.001),
+          font.size = "small",
+          header = FALSE )
 
 # graph the context results
 context_plot <- cbind(
@@ -209,6 +265,26 @@ context_plot <- cbind(
   )
 ggsave("drafts/paper1/figures/context_plot.pdf", context_plot)
 
+#stargazer full local context results
+class(mod1_belong_context) <- "lmerMod"
+stargazer(mod1_belong_context, type = "latex",
+          dep.var.caption = "Local belonging",
+          covariate.labels = c("Income","Education",
+                               "Age","Male","Social grade",
+                               "White British","Median income",
+                               "% 5-year house price change (scaled)",
+                               "Unemployment rate (scaled)",
+                               "Population density (scaled)",
+                               "% White British (scaled)",
+                               "County constituency",
+                               "Constant"),
+          dep.var.labels.include = FALSE,
+          label = "tab:context_mod_full",
+          title = "Localism and local context",
+          no.space = TRUE,
+          star.cutoffs = c(0.05, 0.01, 0.001),
+          font.size = "small",
+          header = FALSE )
 
 
 # graph the region results
@@ -339,7 +415,7 @@ mod_effic2 <- lmer(data = raw11, belongLocal ~ p_gross_household + p_edlevel +
   age + male + white_british + p_socgrade + as.factor(partyIdName) +
   efficacyNoMatter + (1 | pcon))
 mod_effic3 <- lmer(data = raw11, belongLocal ~ p_gross_household +
-  p_edlevel + p_socgrade + white_british + as.factor(partyIdName) +
+  p_edlevel + age + male + p_socgrade + white_british + as.factor(partyIdName) +
   efficacyVoteEffort + (1 | pcon))
 mod_effic4 <- lmer(data = raw11, belongLocal ~ p_gross_household + p_edlevel +
   age + male + white_british + p_socgrade + as.factor(partyIdName) +
@@ -351,7 +427,7 @@ class(mod_effic4) <- "lmerMod"
 
 #stargaze efficacy models 
 stargazer(mod_effic1, mod_effic2, mod_effic3, mod_effic4,
-  type = "latex",
+  type = "text",
   omit = c(
     "p_edlevel", "age", "male", "p_socgrade", "p_gross_household",
     "white_british", "Constant",
@@ -376,6 +452,31 @@ stargazer(mod_effic1, mod_effic2, mod_effic3, mod_effic4,
   omit.stat = c("ll","aic","bic"),
   notes = "Multilevel linear models with random intercepts by parliamentary constituency. First three dependent variables are 1-5 scale ranging from 'strongly disagree' to 'strongly agree'; democratic satisfaction variable ranges from 1-4, omitting neutral category. Models include but do not report standard set of demographic covariates as well as controls for party identification.",
   title = "Voter localism and political efficacy"
+)
+
+
+stargazer(mod_effic1, mod_effic2, mod_effic3, mod_effic4,
+          type = "latex",
+          dep.var.caption = "Local belonging (0/1)",
+          dep.var.labels.include = FALSE,
+          label = "tab:effic_mods_full",
+          covariate.labels = c("Income","Education","Age","Male",
+                               "White British","Social grade",
+                               "Party = Green","Party = Labour",
+                               "Party = Lib Dem","Party = None",
+                               "Party = Other","Party = PC","Party = SNP",
+                               "Party = UKIP",
+            "Voting is a lot of effort",
+            "Politicians don't care about people like me",
+            "Doesn't matter which party is in power",
+            "Satifaction with UK democracy","Constant"
+          ),
+          no.space = TRUE,
+          star.cutoffs = c(0.05, 0.01, 0.001),
+          header = FALSE,
+          model.numbers = TRUE, column.sep.width = "0pt",
+          omit.stat = c("ll","aic","bic"),
+          title = "Voter localism and political efficacy"
 )
 
 
@@ -559,6 +660,28 @@ stargazer(mod_warm_syrian, mod_warm_indian, mod_warm_eastern, mod_customs, mod_c
   omit.stat = c("ll","aic","bic")
 )
 
+#stagazer full results 
+stargazer(mod_warm_syrian, mod_warm_indian, mod_warm_eastern, mod_customs, mod_christian, mod_immig,
+          type = "latex",
+          #keep = c("belongLocal", "ethnicity_white_british", "rate2017"),
+          dep.var.labels.include = FALSE,
+          #covariate.labels = c("% White British", "Unemployment Rate", "Local belonging"),
+          column.labels = c("Syrians", "Indians", "East Europeans", "Customs", "Christianity", "Immigration"),
+          no.space = TRUE,
+          star.cutoffs = c(0.05, 0.01, 0.001),
+          label = "tab:mod_cosmopolitan_full",
+          header = FALSE,
+          title = "Cosmpolitanism models (full results)",
+          omit.stat = c("ll","aic","bic"),
+          column.sep.width = "3pt",
+          covariate.labels = c("Income","Education","Age","Male",
+                               "White British","Social grade",
+                               "% White British","Unemployment rate",
+                               "Party = Green","Party = Labour","Party = Lib Dem",
+                               "Party = None","Party = Other", "Party = PC", 
+                               "Party = SNP","Party = UKIP", "Local belonging","Constant")
+)
+
 
 
 #################################################################
@@ -637,17 +760,16 @@ class(mod_home_2019_2) <- "lmerMod"
 
 #stargazer homeownership models 
 stargazer(mod_home_2017_2, mod_home_2019_2,
-  type = "text",
-  omit = c(
-    "p_edlevel", "age", "male", "p_socgrade", "p_gross_household",
-    "white_british", "Constant"
-  ),
+  type = "latex",
   dep.var.caption = "Vote Conservative (0/1)",
   dep.var.labels.include = FALSE,
-  label = "tab:house_mods",
-  # covariate.labels = c("Local econ","Own house",
-  #                    "General econ","Personal econ",
-  #                   "Local econ * own house"),
+  label = "tab:house_mods_full",
+  title = "Asset-based localism and vote choice",
+   covariate.labels = c("Local econ","Own house",
+                      "General econ","Personal econ",
+                     "Education","Age","Male",
+                     "Social grade","Income","White British",
+                     "Local econ * own house","Constant"),
   no.space = TRUE,
   star.cutoffs = c(0.05, 0.01, 0.001),
   header = FALSE,
@@ -675,7 +797,6 @@ plot_mod_home_2019 <- plot(ggpredict(mod_home_2019_2, terms = c("localEcon", "ow
 plot_mod_home <- plot_mod_home_2017 + 
   plot_mod_home_2019 + 
   plot_annotation(
-    title = "Predicted probability of Conservative vote, by homeownership",
     caption = "Probabilities predicted from random-effects linear regression.
     Probabilities are for white British, male respondent with neutral general
     economic evaluation and mean values of all other covariates."
@@ -697,22 +818,22 @@ plot_mod3 <- plot(ggpredict(mod3, terms = c(
   ) +
   theme(title = element_blank())
 plot_mod6 <- plot(ggpredict(mod6, terms = c("localEcon", "belongLocal", "
-                                               econGenRetro [3]", "white_british [1]"))) +
+                                               econGenRetro [3]", "white_british [1]")),
+                  colors ="bw") +
   labs(x = "Local economic evaluation (low - high)") +
   theme(
     axis.title.y = element_blank(),
     title = element_blank()
   ) +
-  guides(colour = guide_legend(title = str_wrap("Local belonging", 7))) 
+  guides(linetype = guide_legend(title = str_wrap("Local belonging", 7))) 
 
-plot_local_vote_logit <- plot_mod3 + plot_mod6 +
+plot_local_vote <- plot_mod3 + plot_mod6 +
   plot_annotation(
-    title = "Predicted probability of Conservative vote",
     caption = "Probabilities predicted from random-effects linear regression.
     Probabilities are for white British, male respondent with neutral general
     economic evaluation and mean values of all other covariates."
   )
-ggsave("drafts/paper1/figures/plot_local_vote.pdf")
+ggsave("drafts/paper1/figures/plot_local_vote.pdf", plot_local_vote)
 
 ggsave("drafts/paper1/figures/plot_local_vote_interact.pdf", plot_mod6)
 
@@ -848,5 +969,28 @@ stargazer(mod_local, mod_local_house, mod_local_children,
           # )
 )
 
+
+
+#REPORT THE FULL MODEL RESULTS, SINCE THE APSR DEMANDS IT 
+stargazer(mod1, mod2, mod3, mod4, mod5, mod6, 
+          type = "latex",
+          header = FALSE,
+          covariate.labels = c("Local econ",
+                               "Local belonging",
+                               "Income",
+                               "General econ",
+                               "Personal econ","Education","Age",
+                               "Male","Social grade","White British",
+                               "Local econ * belong","Constant"),
+          omit.stat = c("aic","bic"),
+          column.sep.width = "3pt",
+          label = "tab:vote_mod_full",
+          dep.var.labels.include = FALSE,
+          title = "Voting models (full covariates)",
+          star.cutoffs = c(0.05, 0.01, 0.001), 
+          no.space = TRUE, model.numbers = TRUE)
+
+
+stargazer(mod)
 
 

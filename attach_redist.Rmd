@@ -1,0 +1,264 @@
+---
+title: "National Attachment and Preferences on Redistribution"
+author: "Noah Daponte-Smith"
+date: "3/9/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+
+library(tidyverse)
+library(haven)
+library(estimatr)
+library(stargazer)
+library(labelled)
+library(modelsummary)
+library(parlitools)
+#read in data 
+
+#bes <- read_dta("bes/internet_panel/bes_wave19_2019post.dta")
+bes <- read_dta("bes_wave19_2019post.dta")
+lookup <- read_csv("pcon_region_lookup_2019.csv")
+#lookup <- read_csv("uk_geography/pcon_data/pcon_region_lookup_2019.csv")
+#read in pcon to region lookup
+```
+
+```{r cleaning, echo = FALSE}
+dat <- bes
+dat[dat < 0] <- NA
+dat[dat == 9999] <- NA
+dat <- dat %>% 
+  mutate(lad_name = labelled::to_factor(dat$oslaua),
+         constit = labelled::to_factor(dat$pcon),
+         PCON19NM = constit) %>% 
+  left_join(., lookup, by = "PCON19NM") %>% 
+  dplyr::select(id, wt, lad_name, constit, country, oslaua, gor, pcon, starts_with("PCON"), region, 
+                jobzone, generalElectionVote, partyId, starts_with("p_"),
+                starts_with("satDem"), leftRight, howLongLivedHere,
+                age, gender, redistSelf, workingStatus, econPersonalProsp,
+                starts_with("ukAttach"),
+                starts_with("subnat")) %>% 
+  mutate(vote_character = labelled::to_factor(dat$generalElectionVote)) %>% 
+  filter(!(generalElectionVote %in% c(0, 9, 13, 9999))) %>% 
+  mutate(vote_con = case_when(
+    vote_character %in% c("Conservative", "Brexit Party","United Kingdom Independence Party (UKIP)") ~ 1,
+    TRUE ~ 0
+  ), vote = case_when(
+    vote_character %in% c("Brexit Party","United Kingdom Independence Party (UKIP)",
+                          "British National Party (BNP)") ~ 1, 
+    vote_character %in% c("Conservative") ~ 2, 
+    vote_character %in% c("Liberal Democrat", "Change UK- The Independent Group") ~ 3, 
+    vote_character %in% c("Labour") ~ 4, 
+    vote_character %in% c("Green Party","Plaid Cymru") ~ 5
+  ), country = case_when(
+    country == 1 ~ "England",
+    country == 2 ~ "Scotland",
+    country == 3 ~ "Wales"
+  )) 
+
+dat$age <- ifelse(dat$age < 0 | dat$age > 100, NA, dat$age)
+dat$leftRight <- ifelse(dat$leftRight > 10, NA, dat$leftRight)
+dat$p_gross_household <- ifelse(dat$p_gross_household > 15, NA, dat$p_gross_household)
+dat$p_gross_personal <- ifelse(dat$p_gross_personal > 14, NA, dat$p_gross_personal)
+dat$p_education <- ifelse(dat$p_education > 18, NA, dat$p_education)
+dat$econPersonalProsp <- ifelse(dat$econPersonalProsp > 5, NA, dat$econPersonalProsp)
+dat$redistSelf <- ifelse(dat$redistSelf > 10, NA, dat$redistSelf)
+dat$p_ethnicity <- ifelse(dat$p_ethnicity > 14, NA, dat$p_ethnicity)
+dat <- dat %>% filter(!is.na(p_ethnicity))
+dat$is_white <- ifelse(dat$p_ethnicity == 1, 1, 0 )
+dat$has_degree <- ifelse(dat$p_edlevel > 3, 1, 0)
+dat$p_socgrade <- ifelse(dat$p_socgrade %in% c(7, 8), NA, dat$p_socgrade)
+
+dat <- dat %>% 
+  mutate(gross_household_mid = case_when(
+    p_gross_household == 1 ~ 2500, 
+    p_gross_household == 2 ~ 7500, 
+    p_gross_household == 3 ~ 12500,
+    p_gross_household == 4 ~ 17500,
+    p_gross_household == 5 ~ 22500,
+    p_gross_household == 6 ~ 27500,
+    p_gross_household == 7 ~ 32500,
+    p_gross_household == 8 ~ 37500,
+    p_gross_household == 9 ~ 42500,
+    p_gross_household == 10 ~ 47500,
+    p_gross_household == 11 ~ 55000,
+    p_gross_household == 12 ~ 65000,
+    p_gross_household == 13 ~ 85000,
+    p_gross_household == 14 ~ 125000,
+    p_gross_household == 15 ~ 175000,
+    TRUE ~ p_gross_household
+  )) %>% 
+  mutate(gross_household_mid = ifelse(gross_household_mid %in% c(16, 17), NA, gross_household_mid))
+
+#get rid of p_ prefixes
+names <- str_remove(names(dat), "p_")
+names(dat) <- names
+
+# reverse scale of attachment variables 4-6, to match directionality of 1-3
+dat <- dat %>% 
+  # reverse scale of 4-6 variables
+  mutate(ukAttach4 = max(ukAttach4, na.rm = TRUE) - ukAttach4,
+         ukAttach5 = max(ukAttach5, na.rm = TRUE) - ukAttach5,
+         ukAttach6 = max(ukAttach6, na.rm = TRUE) - ukAttach6)
+
+# do factor analysis of the 
+attach <- dat %>% 
+  select(id, starts_with("ukAttach")) %>% 
+  na.omit()
+
+# do the pca analysis 
+fit <- princomp(attach[,2:7], cor=TRUE)
+# plot pca - looks like they map to one component 
+plot(fit, type = "lines")
+# extract the first component 
+# multiply by -1 so higher scores = more attached to UK
+attach$uk_attach_score <- fit$scores[,1]*-1
+# join first component back with the data
+dat <- left_join(dat, attach %>% 
+                   select(id, uk_attach_score), by = "id")
+
+# get rid of variables about party contact - i don't care about them 
+dat <- dat %>% 
+  select(-starts_with("pContact"))
+
+```
+
+```{r}
+
+# do factor analysiis osn subnational attachment variables 
+dat <- dat %>% 
+  mutate(subnatAttach4 = max(subnatAttach4, na.rm = TRUE),
+         subnatAttach5 = max(subnatAttach5, na.rm = TRUE),
+         subnatAttach6 = max(subnatAttach6, na.rm = TRUE))
+subnat <- dat %>% 
+  select(id, starts_with("subnatAttach")) %>% 
+  na.omit()
+
+subnat_fit <- princomp(subnat[,2:7], cor = TRUE)
+plot(subnat_fit, type = "lines") # matches to one dimension
+
+# extract first component 
+# multiply by -1 so higher scores are more attached to subnational
+subnat$subnat_attach_score <- subnat_fit$scores[,1]*-1
+dat <- left_join(dat, 
+                 subnat %>% select(id, subnat_attach_score), 
+                 by = "id")
+
+```
+```{r context_variables}
+# this chunk adds variables relating to local context 
+
+# add variables on 2019 vote choice in constituency 
+vote_vars <- bes_2019 %>% 
+  select(ons_const_id:constituency_name,
+         winner_19, con_19:other_19)
+dat <- left_join(dat, vote_vars, by = c("constit" = "constituency_name",
+                                         "PCON19CD" = "ons_const_id"))
+
+
+# make long version of parties, that contains variable for each party's share
+
+parties_long <- vote_vars %>% 
+  pivot_longer(con_19:other_19,
+               names_to = "party",
+               values_to = "share") %>% 
+  select(-winner_19) %>% 
+  mutate(party = str_remove(party, "_19"),
+         party = case_when(
+           party == "con" ~ "Conservative",
+           party == "lab" ~ "Labour",
+           party == "ld" ~ "Liberal Democrat",
+           party == "brexit" ~ "Brexit Party",
+           party == "pc" ~ "Plaid Cymru",
+           party == "snp" ~ "Scottish National Party (SNP)",
+           party == "green" ~ "Green Party",
+           TRUE ~ party
+         )) %>% 
+  rename(inparty_share = share) %>% 
+  # scale the inparty_share vriable
+  mutate(inparty_share_scale = scale(inparty_share))
+
+# join this to dat by constituency and general election vote
+# dat now has a variable for the constituency-level share of the vote for each voter's in-party
+test <- left_join(dat, parties_long, 
+                  by = c("constit" = "constituency_name",
+                         "PCON19CD" = 'ons_const_id',
+                         "ons_region_id",
+                         "vote_character" = "party")) 
+
+
+summary(lm(data = test %>% 
+             filter(vote_character == "Conservative",
+                    country == "England"), 
+           redistSelf ~ edlevel + age + is_white + 
+             socgrade + gross_household + inparty_share_scale))
+```
+
+
+## Redistribution attitudes and national attachment. 
+
+I am interested in the relationship between individuals' group identities and their attitudes towards redistribution. As a preliminary analysis, I begin by considering senses of attachment to the nation. 
+
+To create a measure of an individual's attachment to the nation, I use six survey items in the post-election 2019 wave of the British Election Study that ask respondents about the extent to which they agree with various statements about Britishness. I run a factor analysis on these six variables to extract the latent dimension onto which they map, and I use this extracted factor as my primary measure of national attachment.
+
+My dependent variable is a survey item that asks respondents about their views on whether the government ought to try to equalize incomes. Smaller numbers indicate the government should do more to equalize incomes; positive coefficients on the variables indicate that the variable correlates with preferences for lower redistribution. 
+
+```{r uk_attach}
+# run a few models regressing redistribution on attachment
+
+#model one - basic demographics
+mod1 <- lm_robust(data = dat, 
+           redistSelf ~ uk_attach_score + is_white + socgrade + 
+             edlevel + age + gross_household)
+
+# model 2 - add leftRight and party fixed effects
+mod2 <- lm_robust(data = dat, redistSelf ~ uk_attach_score + is_white + socgrade + 
+             edlevel + age + gross_household + leftRight, 
+             fixed_effects = partyId * country)
+
+modelsummary(list(mod1, mod2),
+             stars = TRUE,
+             coef_rename = c("uk_attach_score"= "UK Attachment", 
+                             "is_white" = "White",
+                             "socgrade" = "Social grade",
+                             "edlevel" = "Education",
+                             "age" = "Age",
+                             "gross_household" = "income",
+                             "leftRight" = "Left-Right"),
+             coef_omit = "(Intercept)",
+             notes = "Model 2 includes party fixed effects",
+             title = "Redistribution preferences")
+
+```
+
+## Subnational attachment 
+
+I look next at attachment to the subnational unit - in this case, the country (England, Scotland, and Wales). The BES' questions on subnational attachment are identical to those on national attachment; as such, I use the same factor-analysis strategy as above. While 
+```{r subnat_attach}
+
+mod_full <- lm_robust(data = dat, redistSelf ~ subnat_attach_score + is_white + socgrade + 
+             edlevel + age + gross_household+ leftRight, 
+             fixed_effects = ~country)
+
+mod_england <- lm_robust(data = dat %>% filter(country == "England"),
+                  redistSelf ~ subnat_attach_score + is_white + socgrade + 
+                    edlevel + age + gross_household + leftRight, 
+                  fixed_effects = partyId)
+
+mod_celtic <- lm_robust(data = dat %>% filter(country %in% c( "Scotland", "Wales")),
+                  redistSelf ~ subnat_attach_score + is_white + socgrade + 
+                    edlevel + age + gross_household+ leftRight,
+                  fixed_effects = partyId)
+
+mod_scotland <- lm_robust(data = dat %>% filter(country %in% c( "Scotland")),
+                  redistSelf ~ subnat_attach_score + is_white + socgrade + 
+                    edlevel + age + gross_household + leftRight)
+
+mods <- list(mod_full, 
+             mod_england, mod_celtic, mod_scotland)
+
+modelsummary(mods, 
+             stars = TRUE)
+```
+
+
