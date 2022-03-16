@@ -14,12 +14,14 @@ library(stargazer)
 library(labelled)
 library(modelsummary)
 library(parlitools)
+library(DescTools)
 #read in data 
+setwd("C:/Users/dapon/Dropbox/Harvard/dissertation/data")
+bes <- read_dta("bes/internet_panel/bes_wave19_2019post.dta")
 
-#bes <- read_dta("bes/internet_panel/bes_wave19_2019post.dta")
-bes <- read_dta("bes_wave19_2019post.dta")
-lookup <- read_csv("pcon_region_lookup_2019.csv")
-#lookup <- read_csv("uk_geography/pcon_data/pcon_region_lookup_2019.csv")
+#bes <- read_dta("bes_wave19_2019post.dta")
+#lookup <- read_csv("pcon_region_lookup_2019.csv")
+lookup <- read_csv("uk_geography/pcon_data/pcon_region_lookup_2019.csv")
 #read in pcon to region lookup
 ```
 
@@ -31,8 +33,8 @@ dat <- dat %>%
   mutate(lad_name = labelled::to_factor(dat$oslaua),
          constit = labelled::to_factor(dat$pcon),
          PCON19NM = constit) %>% 
-  left_join(., lookup, by = "PCON19NM") %>% 
-  dplyr::select(id, wt, lad_name, constit, country, oslaua, gor, pcon, starts_with("PCON"), region, 
+  #left_join(., lookup, by = "PCON19NM") %>% 
+  dplyr::select(id, wt, lad_name, constit, country, oslaua, gor, pcon, starts_with("PCON"), #region, 
                 jobzone, generalElectionVote, partyId, starts_with("p_"),
                 starts_with("satDem"), leftRight, howLongLivedHere,
                 age, gender, redistSelf, workingStatus, econPersonalProsp,
@@ -121,15 +123,16 @@ dat <- left_join(dat, attach %>%
 dat <- dat %>% 
   select(-starts_with("pContact"))
 
+
 ```
 
 ```{r}
 
 # do factor analysiis osn subnational attachment variables 
 dat <- dat %>% 
-  mutate(subnatAttach4 = max(subnatAttach4, na.rm = TRUE),
-         subnatAttach5 = max(subnatAttach5, na.rm = TRUE),
-         subnatAttach6 = max(subnatAttach6, na.rm = TRUE))
+  mutate(subnatAttach4 = max(subnatAttach4, na.rm = TRUE) - subnatAttach4,
+         subnatAttach5 = max(subnatAttach5, na.rm = TRUE) - subnatAttach5,
+         subnatAttach6 = max(subnatAttach6, na.rm = TRUE) - subnatAttach6)
 subnat <- dat %>% 
   select(id, starts_with("subnatAttach")) %>% 
   na.omit()
@@ -152,8 +155,7 @@ dat <- left_join(dat,
 vote_vars <- bes_2019 %>% 
   select(ons_const_id:constituency_name,
          winner_19, con_19:other_19)
-dat <- left_join(dat, vote_vars, by = c("constit" = "constituency_name",
-                                         "PCON19CD" = "ons_const_id"))
+dat <- left_join(dat, vote_vars, by = c("constit" = "constituency_name"))
 
 
 # make long version of parties, that contains variable for each party's share
@@ -180,18 +182,30 @@ parties_long <- vote_vars %>%
 
 # join this to dat by constituency and general election vote
 # dat now has a variable for the constituency-level share of the vote for each voter's in-party
-test <- left_join(dat, parties_long, 
+dat <- left_join(dat, parties_long, 
                   by = c("constit" = "constituency_name",
-                         "PCON19CD" = 'ons_const_id',
                          "ons_region_id",
                          "vote_character" = "party")) 
 
+# create measures of local political diversity 
 
-summary(lm(data = test %>% 
-             filter(vote_character == "Conservative",
-                    country == "England"), 
-           redistSelf ~ edlevel + age + is_white + 
-             socgrade + gross_household + inparty_share_scale))
+hh_vote <- vote_vars %>% 
+  pivot_longer(con_19:other_19,
+               names_to = "party",
+               values_to = "share") %>% 
+  select(-winner_19, -party) %>% 
+  group_by(ons_const_id, ons_region_id, constituency_name) %>% 
+  summarize(hh_vote_index = Herfindahl(share, na.rm = TRUE))
+
+# join this back in with data
+dat <- left_join(dat, hh_vote, 
+                  by = c("constit" = "constituency_name",
+                         "ons_region_id"))
+
+
+summary(lm(data = dat, redistSelf ~ hh_vote_index*inparty_share + is_white + socgrade + 
+             edlevel + age + gross_household + leftRight))
+
 ```
 
 

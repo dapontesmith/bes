@@ -108,6 +108,7 @@ shp <- st_transform(shp, "+proj=longlat +datum=WGS84") %>%
 mod_local <- lmer(data = raw11, belongLocal ~ p_edlevel +
   age + male + p_socgrade + white_british +
   p_gross_household + (1 | pcon))
+
 mod_local_house <- lmer(data = raw11, belongLocal ~ p_edlevel +
   age + male + p_socgrade + white_british +
   p_gross_household + own_house +
