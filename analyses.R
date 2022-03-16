@@ -185,21 +185,21 @@ ggsave("drafts/paper1/figures/belong_map.pdf", belong_map)
 #############################################
 ## MODELS USING LOCALISM AS A DEPENDNET VARIABLE
 ####################################################
-mod_local <- glmer(data = raw11, belongLocal ~ p_edlevel + 
+mod_local <- lmer(data = raw11, belongLocal ~ p_edlevel + 
                    age + male + p_socgrade + white_british + 
-                   p_gross_household + (1 | pcon_name), 
-                 family = binomial(link = "logit"))
-mod_local_house <- glmer(data = raw11, belongLocal ~ p_edlevel + 
+                   p_gross_household + (1 | pcon))
+mod_local_house <- lmer(data = raw11, belongLocal ~ p_edlevel + 
                      age + male + p_socgrade + white_british + 
                      p_gross_household + own_house + 
-                       (1 | pcon_name), 
-                   family = binomial(link = "logit"))
-mod_local_econ <- glmer(data = raw11, belongLocal ~ p_edlevel + 
+                       (1 | pcon))
+mod_local_econ <- lmer(data = raw11, belongLocal ~ p_edlevel + 
                            age + male + p_socgrade + white_british + 
                            p_gross_household  + localEcon + 
-                           (1 | pcon_name), 
-                         family = binomial(link = "logit"))
+                           (1 | pcon))
 
+class(mod_local) <- "lmerMod"
+class(mod_local_house) <- "lmerMod"
+class(mod_local_econ) <- "lmerMod"
 
 
 stargazer(mod_local, mod_local_house, mod_local_econ,
@@ -209,7 +209,8 @@ stargazer(mod_local, mod_local_house, mod_local_econ,
           no.space = TRUE, 
           model.numbers = TRUE,
           title = "belong_local_mod",
-          omit.stat = c("aic","bic"), star.cutoffs = c(0.05, 0.01, 0.001),
+          omit.stat = c("aic","bic"), 
+          star.cutoffs = c(0.05, 0.01, 0.001),
           column.sep.width = "3pt",
           covariate.labels = c("Education","Age","Male","Social grade", 
                                "White British","Household income", 
