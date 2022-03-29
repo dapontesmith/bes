@@ -308,10 +308,11 @@ region_plot <- cbind(
     conf.high = est + 1.96 * sd
   ) %>%
   ggplot() +
-  geom_pointrange(aes(x = var, y = est, ymin = conf.low, ymax = conf.high)) +
+  geom_pointrange(aes(x = reorder(var, est), y = est, ymin = conf.low, ymax = conf.high)) +
   coord_flip() +
   geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
   theme_minimal() +
+  theme(text = element_text(size = 12)) +
   labs(x = "Region", y = "Estimate")
 
 
@@ -341,6 +342,7 @@ party_plot <- cbind(
   coord_flip() +
   geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
   theme_minimal() +
+  theme(text = element_text(size = 12)) +
   labs(x = "Party", y = "Estimate")
        #caption = "Coefficients on party fixed effects in linear multilevel regressions of local
       #belonging on demographic predictors. Baseline party is the Conservatives.",
@@ -384,7 +386,8 @@ region_map <- left_join(shp, region_df, by = "region") %>%
   theme(rect = element_blank(), 
         axis.ticks = element_blank(), 
         axis.text.x = element_blank(), 
-        axis.text.y = element_blank(  ),
+        axis.text.y = element_blank(  )
+        text = element_text(size = 19),
         legend.position = "left",
         plot.title = element_text(hjust = 0),
         plot.margin = margin(0.1, 0, 0.1, 0, "cm")
@@ -397,13 +400,13 @@ region_map <- left_join(shp, region_df, by = "region") %>%
 ggsave("drafts/paper1/figures/region_map.pdf", region_map)
 
 region_party_plot <- region_plot + party_plot + plot_annotation(
-  #title = "Regional and partisan correlates of local belonging"
-  # caption = "Results from regressions with fixed effects by region and party identification respectively.
-  # Both regressions include demographic covariates. The baseline region is the
-  # East Midlands; the baseline party is Conservative. Each point represents the estimated
-  # propensity of members of the region or party to identify with the local community, above the baseline.
-  # Errors bars represent 95 percent confidence intervals."
-)
+ # title = "Regional and partisan correlates of local belonging",
+   caption = "Results from regressions with fixed effects by region and party identification respectively.
+   Both regressions include demographic covariates. The baseline region is the
+   East Midlands; the baseline party is Conservative. Each point represents the estimated
+   propensity of members of the region or party to identify with the local community, above the baseline.
+   Error bars represent 95 percent confidence intervals."
+) 
 ggsave("drafts/paper1/figures/region_party_plot.pdf", region_party_plot)
 
 
@@ -866,6 +869,7 @@ belong_plot <- belongs %>%
   ggplot() +
   geom_col(aes(x = prop, y = variable)) +
   theme_minimal() +
+  theme(text = element_text(size = 15)) +
   #ggtitle("Proportion of respondents with sense of group belonging") +
   xlab("Proportion") +
   ylab("Group")
