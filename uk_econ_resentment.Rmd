@@ -1,0 +1,119 @@
+---
+title: "Redistribution and Place-Based Economies"
+author: "Noah Daponte-Smith"
+date: "4/4/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+library(sf)
+library(tidyverse)
+library(stargazer)
+knitr::opts_chunk$set(echo = TRUE)
+setwd("C:/Users/dapon/Dropbox/Harvard/dissertation/data")
+df <- read_csv("bes/internet_panel/clean_data/bes_wave21_clean.csv")
+
+#read in region shapefile, rename regions
+shp <- st_read("uk_geography/shapefiles/NUTS_Level_1_(January_2018)_Boundaries.shp")
+#change coordinate system to WGS 84
+shp <- st_transform(shp, "+proj=longlat +datum=WGS84") %>%
+  mutate(region = case_when(
+    nuts118cd == "UKC" ~ "North East",
+    nuts118cd == "UKD" ~ "North West",
+    nuts118cd == "UKE" ~ "Yorkshire and The Humber",
+    nuts118cd == "UKF" ~ "East Midlands",
+    nuts118cd == "UKG" ~ "West Midlands",
+    nuts118cd == "UKH" ~ "East of England",
+    nuts118cd == "UKI" ~ "London",
+    nuts118cd == "UKJ" ~ "South East",
+    nuts118cd == "UKK" ~"South West",
+    nuts118cd == "UKL" ~ "Wales",
+    nuts118cd == "UKM" ~ "Scotland",
+    nuts118cd == "UKN" ~ "Northern Ireland",
+  )) %>% 
+  filter(region != "Northern Ireland")
+
+
+```
+
+## Place-based economic resentment in Britain
+
+Which regions in Britain feel that they're not getting a fair share? It seems that most don't, with the exception of Wales and Scotland (the devolved countries) and the South East. 
+```{r cars}
+
+region_fairshare <- df %>% 
+  group_by(region) %>% 
+  summarize(fairshare = mean(regionFairShare, na.rm = TRUE),
+            n = n()) %>%
+  mutate(region = case_when(
+    region == "Yorkshire and the Humber" ~ "Yorkshire and The Humber",
+    TRUE ~ region
+  ))
+
+left_join(shp, region_fairshare, 
+           by = "region") %>% 
+  ggplot() + 
+  geom_sf(aes(fill = fairshare)) + 
+  theme(rect = element_blank(), 
+        axis.ticks = element_blank(), 
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(  ),
+        text = element_text(size = 19),
+        legend.position = "left",
+        plot.title = element_text(hjust = 0),
+        plot.margin = margin(0.1, 0, 0.1, 0, "cm")
+  )  + 
+  scale_fill_gradient2(low = ("blue"), mid = "white", 
+                     high = ("red"), midpoint = median(region_fairshare$fairshare)) 
+
+```
+
+
+Which regions of Britain feel that London is getting more of a fair share than they are themselves? Here, the story appears to be one of a north-south divide. 
+
+```{r london_region_fairshare, echo=FALSE}
+
+london_region_fairshare <- df %>% 
+  group_by(region) %>% 
+  summarize(fairshare = mean(london_region_fair_share, na.rm = TRUE),
+            n = n()) %>%
+  mutate(region = case_when(
+    region == "Yorkshire and the Humber" ~ "Yorkshire and The Humber",
+    TRUE ~ region
+  ))
+
+left_join(shp, london_region_fairshare, 
+           by = "region") %>% 
+  ggplot() + 
+  geom_sf(aes(fill = fairshare)) + 
+  theme(rect = element_blank(), 
+        axis.ticks = element_blank(), 
+        axis.text.x = element_blank(), 
+        axis.text.y = element_blank(  ),
+        text = element_text(size = 19),
+        legend.position = "left",
+        plot.title = element_text(hjust = 0),
+        plot.margin = margin(0.1, 0, 0.1, 0, "cm")
+  )  + 
+  scale_fill_gradient2(low = ("blue"), mid = "white", 
+                     high = ("red"), midpoint = median(london_region_fairshare$fairshare)) 
+
+```
+
+
+
+## Place-based economic resentment and attitudes towards redistribution
+
+```{r fairshare_redist, echo = FALSE}
+
+mod1 <- lm(data = df, 
+           redistSelf ~ localFairShare*leftRight + p_edlevel + age + male + p_socgrade + 
+             p_gross_household + as.factor(region))
+
+mod2 <- lm(data = df, 
+           redistSelf ~ london_local_fair_share + p_edlevel + age + male + p_socgrade + 
+             p_gross_household + leftRight + as.factor(region))
+
+stargazer(mod1, mod2, type = "text")
+
+```
