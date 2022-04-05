@@ -9,10 +9,14 @@ output: pdf_document
 library(sf)
 library(tidyverse)
 library(stargazer)
+library(estimatr)
+library(modelsummary)
+library(ggeffects)
+library(patchwork)
+
 knitr::opts_chunk$set(echo = TRUE)
 setwd("C:/Users/dapon/Dropbox/Harvard/dissertation/data")
 df <- read_csv("bes/internet_panel/clean_data/bes_wave21_clean.csv")
-
 #read in region shapefile, rename regions
 shp <- st_read("uk_geography/shapefiles/NUTS_Level_1_(January_2018)_Boundaries.shp")
 #change coordinate system to WGS 84
@@ -30,19 +34,46 @@ shp <- st_transform(shp, "+proj=longlat +datum=WGS84") %>%
     nuts118cd == "UKL" ~ "Wales",
     nuts118cd == "UKM" ~ "Scotland",
     nuts118cd == "UKN" ~ "Northern Ireland",
-  )) %>% 
+  )) %>%
   filter(region != "Northern Ireland")
-
 
 ```
 
-## Place-based economic resentment in Britain
 
-Which regions in Britain feel that they're not getting a fair share? It seems that most don't, with the exception of Wales and Scotland (the devolved countries) and the South East. 
-```{r cars}
 
-region_fairshare <- df %>% 
-  group_by(region) %>% 
+## Regional deservingness and place-based economic resentment 
+I first look at the relationship between preferences over redistribution (my dependent variable) and perceptions of the geographic distribution of central-government funding in Britain. The key independent variables are a series of questions that ask respondents about whether whether various geographic areas receive their "fair share" of central government spending. The scale is from 1-5, from "much less than its fair share" to "much more than its fair share." Respondents were asked about three geographic areas: their local area, their region, and London. I plot the distributions of these variables below. Most respondents believe their local areas and regions are under-funded relative to what they deserve, while the large majority believe London is overfunded. 
+
+```{r histograms, echo = FALSE, warning = FALSE}
+
+local_hist <- df %>% 
+  ggplot() + 
+  geom_histogram(aes(x = localFairShare), stat = "count") + 
+  theme_minimal() + 
+  labs(x = "Local area gets fair share of spending")
+
+region_hist <- df %>% 
+  ggplot() + 
+  geom_histogram(aes(x = regionFairShare), stat = "count") + 
+  theme_minimal() + 
+  labs(x = "Region gets fair share of spending",
+       y = "")
+
+london_hist <- df %>% 
+  ggplot() + 
+  geom_histogram(aes(x = londonFairShare), stat = "count") + 
+  theme_minimal() + 
+  labs(x = "London gets fair share of spending")
+
+(local_hist | region_hist) / london_hist
+
+```
+
+I also plot the geographic distribution of these attitudes. The left and right panels plot the mean value by region of the regional-fair share and London-fair shares variables respectively. Scotland, Wales, London, and South East England are the only regions that rank above the median value (by region) of the regional fair-share variable. This accords with the facts that the latter two regions are either London or its immediate environs, while centralized redistribution to Scotland and Wales' devolved authorities has high political salience in British politics. The right panel shows that \textit{every} region, including London itself, believes London receives at least its proper share of central government spending, but that this feeling is most pronounced in northern England. Again, this accords with the prominent trend of north-south divides in British politics. 
+
+```{r echo = FALSE, warning = FALSE}
+region_fairshare <- df %>%
+  group_by(region) %>%
   summarize(fairshare = mean(regionFairShare, na.rm = TRUE),
             n = n()) %>%
   mutate(region = case_when(
@@ -50,70 +81,108 @@ region_fairshare <- df %>%
     TRUE ~ region
   ))
 
-left_join(shp, region_fairshare, 
-           by = "region") %>% 
-  ggplot() + 
-  geom_sf(aes(fill = fairshare)) + 
-  theme(rect = element_blank(), 
-        axis.ticks = element_blank(), 
-        axis.text.x = element_blank(), 
+region_plot <- left_join(shp, region_fairshare,
+           by = "region") %>%
+  rename(`Region fair share` = fairshare) %>% 
+  ggplot() +
+  geom_sf(aes(fill = `Region fair share`)) +
+  theme(rect = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text.x = element_blank(),
         axis.text.y = element_blank(  ),
-        text = element_text(size = 19),
+        text = element_text(size = 10),
         legend.position = "left",
         plot.title = element_text(hjust = 0),
         plot.margin = margin(0.1, 0, 0.1, 0, "cm")
-  )  + 
-  scale_fill_gradient2(low = ("blue"), mid = "white", 
-                     high = ("red"), midpoint = median(region_fairshare$fairshare)) 
+  )  +
+  scale_fill_gradient2(low = ("blue"), mid = "white",
+                     high = ("red"), midpoint = median(region_fairshare$fairshare))
 
-```
-
-
-Which regions of Britain feel that London is getting more of a fair share than they are themselves? Here, the story appears to be one of a north-south divide. 
-
-```{r london_region_fairshare, echo=FALSE}
-
-london_region_fairshare <- df %>% 
+london_fairshare <- df %>% 
   group_by(region) %>% 
-  summarize(fairshare = mean(london_region_fair_share, na.rm = TRUE),
-            n = n()) %>%
+  summarize(`London fair share` = mean(londonFairShare, na.rm = TRUE)) %>% 
   mutate(region = case_when(
-    region == "Yorkshire and the Humber" ~ "Yorkshire and The Humber",
+    region == "Yorkshire and the Humber" ~ "Yorkshire and The Humber", 
     TRUE ~ region
   ))
 
-left_join(shp, london_region_fairshare, 
-           by = "region") %>% 
+
+london_plot <- left_join(shp, london_fairshare, 
+                         by = "region") %>% 
   ggplot() + 
-  geom_sf(aes(fill = fairshare)) + 
+  geom_sf(aes(fill = `London fair share`)) + 
   theme(rect = element_blank(), 
-        axis.ticks = element_blank(), 
-        axis.text.x = element_blank(), 
-        axis.text.y = element_blank(  ),
-        text = element_text(size = 19),
-        legend.position = "left",
+        axis.ticks = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        text = element_text(size = 10),
+        legend.position = "right", 
         plot.title = element_text(hjust = 0),
-        plot.margin = margin(0.1, 0, 0.1, 0, "cm")
-  )  + 
-  scale_fill_gradient2(low = ("blue"), mid = "white", 
-                     high = ("red"), midpoint = median(london_region_fairshare$fairshare)) 
+        plot.margin = margin(0.1, 0, 0.1, 0, "cm")) + 
+  scale_fill_gradient2(low = ("blue"), mid = "white",
+                       high = ("red"), midpoint = median(london_fairshare$`London fair share`))
 
+
+region_plot + london_plot
 ```
 
 
+## Relationship with preferences over redistribution
+I now look at the relationship between these variables and a political outcome - preferences over redistriubtion. In eahc model, the key dependent variable is a 1-10 scale; higher values indicate preferences for higher levels of redistribution. Models 1 and 2 use the local and regional measures respectively as independent variables. For models 3 and 4, the dependent variable is the difference between the respondent's response to the London question and the local area and region questions respectively. As such, these latter models assess the respondent's perception that London's share of central government spending exceeds that of their own local area or region. This might plausibly capture a sense of place-based distributional resentment. I use linear models in each case. I include regional fixed effects, alongside a suite of demographic covariates - age, gender, social grade, education, household income, and the respondent's left-right placement. Positive coefficients indicate higher values of the variable correspond with preferences for higher redistribution. 
+\newpage
 
-## Place-based economic resentment and attitudes towards redistribution
 
-```{r fairshare_redist, echo = FALSE}
+```{r fairshare_redist, echo = FALSE, warning = FALSE}
 
-mod1 <- lm(data = df, 
-           redistSelf ~ localFairShare*leftRight + p_edlevel + age + male + p_socgrade + 
-             p_gross_household + as.factor(region))
+local_redist <- lm_robust(data = df, 
+           redistSelf ~ localFairShare +  p_edlevel + age + male + p_socgrade + 
+             p_gross_household + leftRight,
+           fixed_effects = region)
 
-mod2 <- lm(data = df, 
-           redistSelf ~ london_local_fair_share + p_edlevel + age + male + p_socgrade + 
-             p_gross_household + leftRight + as.factor(region))
+region_redist <- lm_robust(data = df, 
+                           redistSelf ~ regionFairShare + p_edlevel + age + male + 
+                             p_socgrade  + p_gross_household + leftRight,
+                           fixed_effects = region)
 
-stargazer(mod1, mod2, type = "text")
+london_local_redist <- lm_robust(data = df, 
+           redistSelf ~ london_local_fair_share  + p_edlevel + age + male + p_socgrade + 
+             p_gross_household + leftRight, 
+           fixed_effects = region)
+
+london_region_redist <- lm_robust(data = df,
+                                  redistSelf ~ london_region_fair_share + p_edlevel + age + 
+                                    male + p_socgrade + p_gross_household + leftRight,
+                                  fixed_effects = region)
+modelsummary(list(local_redist, region_redist, 
+                  london_local_redist, london_region_redist),
+             stars = TRUE,
+             output = "latex",
+             coef_map = c("localFairShare" = "Local area gets fair share", 
+                             "regionFairShare" = "Region gets fair share",
+                             "london_local_fair_share" = "London-local fair share",
+                              "london_region_fair_share" = "London-region fair share",
+                             "p_edlevel" = "Education",
+                             "age" = "Age",
+                             "male" = "Male",
+                             "p_socgrade" = "Social grade",
+                             "p_gross_household" = "Household income",
+                             "leftRight" = "Left-right self-placement"),
+             coef_omit = "factor",
+             title = "Perceptions of geographic redistribution and preferences over redistribution",
+             notes = "Linear models with region fixed effects.
+             Dependent variable is preferences over redistribution on 1-10 scale.")
 
 ```
+
+Let us first look at models 1 and 2. In each model, the key coefficients are negative and significant: As respondents believe their local area or region receive increasingly "fair" shares of central government spending, their preferences for generalized redistribution decrease. Models 3 and 4 look at respondent's perceptions that London receives an undue amount of central spending - this may capture perceptions of peripheralness, or perhaps place-based economic resentment. In both models, the coefficients are positive and significant: Respondents who believe London receives too much spending are also more favorable towards redistribution. Across all four models, the coefficients in the local-area models (1 and 3) are larger than in the regional models (2 and 4); this suggests that local areas may be \textit{more} salient to voters than are regions. The broad takeaway from these models, as I see it, is that perceptions of deservingness do correspond with preferences over redistribution. 
+
+
+
+Next steps: 
+\begin{enumerate}
+\item Look at the relationship between the fair-share variables and objective conditions. Do respondents correctly perceive that their areas receive less than they should (however that may be defined) from the central government? This will depend on the availability of official statistics on distributional formulas. 
+
+\item Investigate the relationship with both economic perceptions and objective economic conditions. When the local economy begins to suffer, do individuals come to perceive their areas as receiving less than their fair shares of funding? 
+
+
+\end{enumerate}
