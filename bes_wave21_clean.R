@@ -1,6 +1,7 @@
 setwd("C:/Users/dapon/Dropbox/Harvard/dissertation/data")
 library(haven)
 library(tidyverse)
+library(parlitools)
 
 full <- read_dta("bes/internet_panel/BES2019_W21_v21.0.dta")
 # read in pcon-to-region lookup
@@ -54,9 +55,8 @@ full <- full %>%
 
 # handle some issues with geographic data
 full <- full %>% 
-  mutate(lad_name = labelled::to_factor(oslaua),
-pcon_name = labelled::to_factor(pcon)) %>%
-  rename(PCON19NM = pcon_name) 
+ # mutate(lad_name = labelled::to_factor(oslaua),
+mutate(PCON19NM = labelled::to_factor(pcon)) 
   #left_join(., lookup, by = "PCON19NM") %>% 
   #filter(region != "Scotland")
 
@@ -85,9 +85,48 @@ full <- full %>%
     partyId == 12 ~ "Brexit"
   ))
 
+# TO DO - CODE VARAIBLE FOR VOTE CHOICE AT LAST ELECTION 
+
 # reverse the scale of the redistribution varaible, 
 # so higher values = higher support for redistribution
 full$redistSelf <- max(full$redistSelf, na.rm = TRUE) - full$redistSelf
+
+# merge parlitools 2019 data with the dataframe
+
+bes_to_merge <- bes_2019 %>% 
+  select(ons_const_id, constituency_name, 
+         constituency_type, winner_19, turnout_19, 
+         con_19:other_19) %>% 
+  rename(PCON19CD = ons_const_id, 
+         PCON19NM = constituency_name)
+
+# set overall conservative share of the vote
+con_share_overall <- 43.6
+
+# create variable for difference between constituency con-share and overall con share
+bes_to_merge <- bes_to_merge %>% 
+  mutate(con_share_diff = con_19 - con_share_overall) 
+# larger -> conservatives did better in constitunecy than in the country 
+
+# join this to df by constituency identiifers 
+full <- full %>% 
+  left_join(bes_to_merge, 
+            by = c("PCON19CD", "PCON19NM"))
+
+# read in unemployment data 
+unem <- read_csv("uk_geography/pcon_data/pcon_unemployment_to_2010.csv")
+
+unem <- unem %>% 
+  # get only 2021 unemployment
+  filter(DateOfDataset == "1/1/2021") %>% 
+  select(ONSConstID, UnempConstRate) %>% 
+  # create scaled variable of unemeployment
+  mutate(unemp_const_scale = scale(UnempConstRate))
+
+full <- full %>% 
+  left_join(unem, 
+            by = c("PCON19CD" = "ONSConstID")) 
+
 
 
 write.csv(full, "bes/internet_panel/clean_data/bes_wave21_clean.csv")

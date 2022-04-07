@@ -16,18 +16,21 @@ library(estimatr)
 library(modelsummary)
 library(ggeffects)
 library(patchwork)
+library(parlitools)
+library(DescTools)
 
 knitr::opts_chunk$set(echo = TRUE)
-setwd("C:/Users/dapon/Dropbox/Harvard/dissertation/data")
-df <- read_csv("bes/internet_panel/clean_data/bes_wave21_clean.csv")
+# setwd("C:/Users/dapon/Dropbox/Harvard/dissertation/data")
+# df <- read_csv("bes/internet_panel/clean_data/bes_wave21_clean.csv")
+df <- read_csv("bes_wave21_clean.csv")
 #read in region shapefile, rename regions
 shp <- st_read("uk_geography/shapefiles/NUTS_Level_1_(January_2018)_Boundaries.shp")
-#change coordinate system to WGS 84
+# #change coordinate system to WGS 84
 shp <- st_transform(shp, "+proj=longlat +datum=WGS84") %>%
   mutate(region = case_when(
     nuts118cd == "UKC" ~ "North East",
     nuts118cd == "UKD" ~ "North West",
-    nuts118cd == "UKE" ~ "Yorkshire and The Humber",
+    nuts118cd == "UKE" ~ "Yorkshire and the Humber",
     nuts118cd == "UKF" ~ "East Midlands",
     nuts118cd == "UKG" ~ "West Midlands",
     nuts118cd == "UKH" ~ "East of England",
@@ -39,7 +42,6 @@ shp <- st_transform(shp, "+proj=longlat +datum=WGS84") %>%
     nuts118cd == "UKN" ~ "Northern Ireland",
   )) %>%
   filter(region != "Northern Ireland")
-
 ```
 
 
@@ -91,11 +93,7 @@ I also plot the geographic distribution of these attitudes. The left and right p
 region_fairshare <- df %>%
   group_by(region) %>%
   summarize(fairshare = mean(regionFairShare, na.rm = TRUE),
-            n = n()) %>%
-  mutate(region = case_when(
-    region == "Yorkshire and the Humber" ~ "Yorkshire and The Humber",
-    TRUE ~ region
-  ))
+            n = n()) 
 
 region_plot <- left_join(shp, region_fairshare,
            by = "region") %>%
@@ -116,12 +114,7 @@ region_plot <- left_join(shp, region_fairshare,
 
 london_fairshare <- df %>% 
   group_by(region) %>% 
-  summarize(`London fair share` = mean(londonFairShare, na.rm = TRUE)) %>% 
-  mutate(region = case_when(
-    region == "Yorkshire and the Humber" ~ "Yorkshire and The Humber", 
-    TRUE ~ region
-  ))
-
+  summarize(`London fair share` = mean(londonFairShare, na.rm = TRUE)) 
 
 london_plot <- left_join(shp, london_fairshare, 
                          by = "region") %>% 
@@ -235,6 +228,39 @@ modelsummary(list(local_econ_mod, region_econ_mod,
 
 The results here are similar to those in the models in table 1. In models 1 and 2, positive perceptions of the local and regional economy correlate negatively with preferences for higher redistribution. The coefficient is larger, and more strongly significant, for the local economy than for the regional one. Models 3 and 4 show that perceptions that London's economy is outpacing the local or regional one associate strongly with preferences for \textit{higher} redistribution. I take this as evidence that perceptions of geographic inequality - which may map onto a deeper concept of "perceived peripheralness," or something along those lines - play into redistribution preferences. This seems a fascinating relationship to explore further, as I briefly develop below. 
 
+```{r}
+
+# look at the relationship between perceptions of the economy and perceptions of geographic unfairness
+
+local_econ_fairshare <- lm_robust(data = df, 
+                                  localFairShare ~ localEcon + p_edlevel + age + 
+                                    male + p_socgrade + p_gross_household + leftRight, 
+                                  fixed_effects  = region)
+
+
+region_econ_fairshare <- lm_robust(data = df, 
+                                  regionFairShare ~ regionEcon + p_edlevel + age + 
+                                    male + p_socgrade + p_gross_household + leftRight, 
+                                  fixed_effects  = region)
+
+local_econ_london_local_fairshare <- lm_robust(data = df, 
+                                  london_local_fair_share ~ localEcon + p_edlevel + age + 
+                                    male + p_socgrade + p_gross_household + leftRight, 
+                                  fixed_effects  = region)
+
+region_econ_london_region_fairshare <- lm_robust(data = df, 
+                                  london_region_fair_share ~ regionEcon + p_edlevel + age + 
+                                    male + p_socgrade + p_gross_household + leftRight, 
+                                  fixed_effects  = region)
+
+modelsummary(list(local_econ_fairshare, region_econ_fairshare,
+                  local_econ_london_local_fairshare, 
+                  region_econ_london_region_fairshare),
+             stars = TRUE,
+             output = "markdown")
+
+
+```
 
 \section{Next steps}
 \begin{enumerate}
@@ -244,5 +270,8 @@ The results here are similar to those in the models in table 1. In models 1 and 
 
 \item Look at the relationship with vote choice. Previous work (Green and Fieldhouse 2021) has suggested that, in the British context, those who feel senses of place-based economic resentment were more likely to vote for Brexit. Does this apply to general elections as well? Was place-based economic resentment, for instance, a driver of Labour-to-Conservative switching in the 2019 general election? 
 
+\item Look at geographic correlates of feelings of economic resentment. Does distance from London play a role? Distance from the closest major city? 
+
+\item Look at the relationship between the economic composition of the place - in particular the extent to which the place is "digitalized," or otherwise participates in the knowledge economy - and perceptions of geographic redistribution. Are places whose economic composition is quite "left-behind" more resentful towards London's share of centralized spending? This expands, in a sense, the scope of investigation into economic compositions. The research question could be something like: How does peripherality/left-behindness influence views over geographic redistribution? 
 
 \end{enumerate}
