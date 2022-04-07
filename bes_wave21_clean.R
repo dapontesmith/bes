@@ -28,6 +28,8 @@ full <- full %>%
   mutate(PCON19NM = labelled::to_factor(pcon)) %>% 
   left_join(., lookup, by = "PCON19NM") 
 
+# get 
+
 full$age <- ifelse(full$age < 0 | full$age > 100, NA, full$age)
 full$leftRight <- ifelse(full$leftRight > 10, NA, full$leftRight)
 full$p_gross_household <- ifelse(full$p_gross_household > 15, NA, full$p_gross_household)

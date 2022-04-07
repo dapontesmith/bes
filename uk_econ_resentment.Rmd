@@ -1,8 +1,11 @@
 ---
 title: "Redistribution and Place-Based Economies"
 author: "Noah Daponte-Smith"
-date: "4/4/2022"
+date: "4/6/2022"
+header-includes: 
+  - \usepackage{setspace}\doublespacing
 output: pdf_document
+
 ---
 
 ```{r setup, include=FALSE}
@@ -45,25 +48,38 @@ shp <- st_transform(shp, "+proj=longlat +datum=WGS84") %>%
 I first look at the relationship between preferences over redistribution (my dependent variable) and perceptions of the geographic distribution of central-government funding in Britain. The key independent variables are a series of questions that ask respondents about whether whether various geographic areas receive their "fair share" of central government spending. The scale is from 1-5, from "much less than its fair share" to "much more than its fair share." Respondents were asked about three geographic areas: their local area, their region, and London. I plot the distributions of these variables below. Most respondents believe their local areas and regions are under-funded relative to what they deserve, while the large majority believe London is overfunded. 
 
 ```{r histograms, echo = FALSE, warning = FALSE}
+labels_custom <- c("much less", "a little less","about right","a little more", "much more")
 
 local_hist <- df %>% 
+  # have to do this factor thing to make the custom labels work correctly
+  mutate(localFairShare_factor = factor(localFairShare)) %>% 
+  filter(!is.na(localFairShare_factor)) %>% 
   ggplot() + 
-  geom_histogram(aes(x = localFairShare), stat = "count") + 
+  geom_histogram(aes(x = localFairShare_factor) , stat = "count") + 
   theme_minimal() + 
-  labs(x = "Local area gets fair share of spending")
+  labs(x = "Local area gets fair share of spending") +
+  scale_x_discrete(labels = NULL)
+  #scale_x_discrete(labels = labels_custom)
 
 region_hist <- df %>% 
+  mutate(regionFairShare_factor = factor(regionFairShare)) %>% 
+  filter(!is.na(regionFairShare_factor)) %>% 
   ggplot() + 
-  geom_histogram(aes(x = regionFairShare), stat = "count") + 
+  geom_histogram(aes(x = regionFairShare_factor), stat = "count") + 
   theme_minimal() + 
   labs(x = "Region gets fair share of spending",
-       y = "")
+       y = "") + 
+  scale_x_discrete(labels = NULL)
+  #scale_x_discrete(labels= labels_custom)
 
 london_hist <- df %>% 
+  mutate(londonFairShare_factor = factor(londonFairShare)) %>% 
+  filter(!is.na(londonFairShare_factor)) %>% 
   ggplot() + 
-  geom_histogram(aes(x = londonFairShare), stat = "count") + 
+  geom_histogram(aes(x = londonFairShare_factor), stat = "count") + 
   theme_minimal() + 
-  labs(x = "London gets fair share of spending")
+  labs(x = "London gets fair share of spending") + 
+  scale_x_discrete(labels= labels_custom)
 
 (local_hist | region_hist) / london_hist
 
@@ -170,19 +186,63 @@ modelsummary(list(local_redist, region_redist,
              coef_omit = "factor",
              title = "Perceptions of geographic redistribution and preferences over redistribution",
              notes = "Linear models with region fixed effects.
-             Dependent variable is preferences over redistribution on 1-10 scale.")
+            Dependent variable is preferences over redistribution on 1-10 scale.")
 
 ```
 
+
+
 Let us first look at models 1 and 2. In each model, the key coefficients are negative and significant: As respondents believe their local area or region receive increasingly "fair" shares of central government spending, their preferences for generalized redistribution decrease. Models 3 and 4 look at respondent's perceptions that London receives an undue amount of central spending - this may capture perceptions of peripheralness, or perhaps place-based economic resentment. In both models, the coefficients are positive and significant: Respondents who believe London receives too much spending are also more favorable towards redistribution. Across all four models, the coefficients in the local-area models (1 and 3) are larger than in the regional models (2 and 4); this suggests that local areas may be \textit{more} salient to voters than are regions. The broad takeaway from these models, as I see it, is that perceptions of deservingness do correspond with preferences over redistribution. 
 
+I now look at the relationship between perceptions of economic inequality and preferences over redistribution. The BES included a series of questions that asked respondents about their perceptions of the annual economic performance of their own local area, their region, and London. Replicating the structure above, models 1 and 2 use perceptions of local and regional economic performance as their key independent variable, while models 3 and 4 use the difference between perceptions of London's economy and perceptions of the local and regional economies respectively. All models use redistribution preferences as the dependent variable. These latter models therefore inquire directly into the relationship between perceptions of geographic-economy inequality and redistribution. I again use a suite of demographic covariates and regional fixed effects. 
+```{r echo = FALSE, warning = FALSE}
+local_econ_mod <- (lm_robust(data = df, 
+                   redistSelf ~ localEcon + p_edlevel + age + 
+                     male + p_socgrade + p_gross_household + leftRight, 
+                   fixed_effects = region))
+region_econ_mod <- (lm_robust(data = df, 
+                   redistSelf ~ regionEcon + p_edlevel + age + 
+                     male + p_socgrade + p_gross_household + leftRight, 
+                   fixed_effects = region))
+london_local_econ_mod <- (lm_robust(data = df, 
+                   redistSelf ~ london_local_econ + p_edlevel + age + 
+                     male + p_socgrade + p_gross_household + leftRight, 
+                   fixed_effects = region))
+london_region_econ_mod <- (lm_robust(data = df, 
+                   redistSelf ~ london_region_econ + p_edlevel + age + 
+                     male + p_socgrade + p_gross_household + leftRight, 
+                   fixed_effects = region))
+modelsummary(list(local_econ_mod, region_econ_mod, 
+                  london_local_econ_mod, london_region_econ_mod),
+             stars = TRUE,
+             output = "latex",
+             coef_map = c("localEcon" = "Local econ perception", 
+                             "regionEcon" = "Regional econ perception",
+                             "london_local_econ" = "London-local econ perception",
+                              "london_region_econ" = "London-region econ perception",
+                             "p_edlevel" = "Education",
+                             "age" = "Age",
+                             "male" = "Male",
+                             "p_socgrade" = "Social grade",
+                             "p_gross_household" = "Household income",
+                             "leftRight" = "Left-right self-placement"),
+             coef_omit = "factor",
+             title = "Perceptions of geographic inequality and preferences over redistribution",
+             notes = "Linear models with region fixed effects.
+            Dependent variable is preferences over redistribution on 1-10 scale.")
+
+```
+
+The results here are similar to those in the models in table 1. In models 1 and 2, positive perceptions of the local and regional economy correlate negatively with preferences for higher redistribution. The coefficient is larger, and more strongly significant, for the local economy than for the regional one. Models 3 and 4 show that perceptions that London's economy is outpacing the local or regional one associate strongly with preferences for \textit{higher} redistribution. I take this as evidence that perceptions of geographic inequality - which may map onto a deeper concept of "perceived peripheralness," or something along those lines - play into redistribution preferences. This seems a fascinating relationship to explore further, as I briefly develop below. 
 
 
-Next steps: 
+\section{Next steps}
 \begin{enumerate}
 \item Look at the relationship between the fair-share variables and objective conditions. Do respondents correctly perceive that their areas receive less than they should (however that may be defined) from the central government? This will depend on the availability of official statistics on distributional formulas. 
 
 \item Investigate the relationship with both economic perceptions and objective economic conditions. When the local economy begins to suffer, do individuals come to perceive their areas as receiving less than their fair shares of funding? 
+
+\item Look at the relationship with vote choice. Previous work (Green and Fieldhouse 2021) has suggested that, in the British context, those who feel senses of place-based economic resentment were more likely to vote for Brexit. Does this apply to general elections as well? Was place-based economic resentment, for instance, a driver of Labour-to-Conservative switching in the 2019 general election? 
 
 
 \end{enumerate}
