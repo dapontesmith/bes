@@ -20,9 +20,9 @@ library(parlitools)
 library(DescTools)
 
 knitr::opts_chunk$set(echo = TRUE)
-# setwd("C:/Users/dapon/Dropbox/Harvard/dissertation/data")
-# df <- read_csv("bes/internet_panel/clean_data/bes_wave21_clean.csv")
-df <- read_csv("bes_wave21_clean.csv")
+ setwd("C:/Users/dapon/Dropbox/Harvard/dissertation/data")
+ df <- read_csv("bes/internet_panel/clean_data/bes_wave21_clean.csv")
+#df <- read_csv("bes_wave21_clean.csv")
 #read in region shapefile, rename regions
 shp <- st_read("uk_geography/shapefiles/NUTS_Level_1_(January_2018)_Boundaries.shp")
 # #change coordinate system to WGS 84
@@ -228,7 +228,11 @@ modelsummary(list(local_econ_mod, region_econ_mod,
 
 The results here are similar to those in the models in table 1. In models 1 and 2, positive perceptions of the local and regional economy correlate negatively with preferences for higher redistribution. The coefficient is larger, and more strongly significant, for the local economy than for the regional one. Models 3 and 4 show that perceptions that London's economy is outpacing the local or regional one associate strongly with preferences for \textit{higher} redistribution. I take this as evidence that perceptions of geographic inequality - which may map onto a deeper concept of "perceived peripheralness," or something along those lines - play into redistribution preferences. This seems a fascinating relationship to explore further, as I briefly develop below. 
 
-```{r}
+Finally, table 3 looks at the relationship between perceptions of the economy and perceptions of geographic redistribution. Models 1 and 2 use the local and regional fair-share measures respectively as the dependent variable, and perceptions of local and regional economic performance as the independent variables. The positive and significant coefficients indicate that, as respondents believe their own local or regional economies are doing better, they perceive those areas as receiving their fair share of spending from the central goverment. (This may suggest that individuals believe poorer places \textit{should} get a higher share of funding). 
+
+Models 3 and 4 change the dependent variables to, respectively, the difference between the perceived share of funding going to London and going to one's local area or region. Higher values indicate the respondent believes London is receiving an undue share, relative to their own local area or region. In both cases, the coefficients are negative and significant: Better perceptions of the local/regional economy correspond negatively with the belief that London receives an undue share of revenue. This suggests, in turn, that place-based economic resentment is at least in part a product of individuals' perceptions of local/regional economic performance. 
+
+```{r echo = FALSE, warning = FALSE}
 
 # look at the relationship between perceptions of the economy and perceptions of geographic unfairness
 
@@ -257,7 +261,16 @@ modelsummary(list(local_econ_fairshare, region_econ_fairshare,
                   local_econ_london_local_fairshare, 
                   region_econ_london_region_fairshare),
              stars = TRUE,
-             output = "markdown")
+             output = "markdown",
+             coef_map = c("localEcon" = "Local economic perception", 
+                             "regionEcon" = "Regional economic perception",
+                             "p_edlevel" = "Education",
+                             "age" = "Age",
+                             "male" = "Male",
+                             "p_socgrade" = "Social grade",
+                             "p_gross_household" = "Household income",
+                             "leftRight" = "Left-right self-placement"),
+            title = "Correlation between perceptions of economic performance and geographic redistribution")
 
 
 ```
@@ -265,6 +278,8 @@ modelsummary(list(local_econ_fairshare, region_econ_fairshare,
 \section{Next steps}
 \begin{enumerate}
 \item Look at the relationship between the fair-share variables and objective conditions. Do respondents correctly perceive that their areas receive less than they should (however that may be defined) from the central government? This will depend on the availability of official statistics on distributional formulas. 
+
+\item Look at movers. Do people who move to a poorer place become more favorable to redistribution? This is empirically feasible due to the panel structure of the data, plus the geographic identifiers. 
 
 \item Investigate the relationship with both economic perceptions and objective economic conditions. When the local economy begins to suffer, do individuals come to perceive their areas as receiving less than their fair shares of funding? 
 
