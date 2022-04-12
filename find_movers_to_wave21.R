@@ -12,123 +12,113 @@ library(haven)
 numCores = detectCores()
 registerDoParallel(numCores - 1)
 
-setwd("C:/Users/dapon/Dropbox/Harvard/dissertation")
-df <- read_dta("data/bes/internet_panel/BES2019_W21_Panel_v21.0.dta") 
+#setwd("C:/Users/dapon/Dropbox/Harvard/dissertation")
+#df <- read_dta("data/bes/internet_panel/BES2019_W21_Panel_v21.0.dta") 
+df <- read_dta("BES2019_W21_Panel_v21.0.dta")
 
 #dplyr::select only the geographic variables
 df <- df %>%
   dplyr::select(id,
   starts_with("pconW"), starts_with("gor"),
                 starts_with("oslaua")) 
+# get only people who appear in wave 21
+in_wave_21 <- df %>% 
+  filter(!is.na(pconW21))
 
 # get a vector of variable names 
-names <- names(df) %>% as_tibble()
+names <- names(in_wave_21) %>% as_tibble()
 
 
 
 #get all the unique ids - will loop over this 
-ids <- unique(df$id)
+ids <- unique(in_wave_21$id)
 
 
-
-#write function to find whether smeone moved pcon between waves
-find_wave_moved <- function(dataframe, respondent_id){
+# function to report the ids of movers, 
+# as well as the wave in which they moved, 
+# and the pcon code of their old and new constituencies 
+find_movers <- function(dataframe, respondent_id){
+  out <- dataframe[dataframe$id == respondent_id,] %>% 
+    fill(area_code, .direction = "up") %>% 
+    fill(area_name, .direction = "up") %>% 
+    # find the area in the previous wave 
+    mutate(previous_code = lag(area_code),
+           previous_name = lag(area_name)) %>% 
+    # create indicator for whether hte person moved in a particular wave
+    mutate(moved = ifelse(
+      area_code != previous_code & !(is.na(previous_code)), 1, 0)
+    )
   
-  dat <- dataframe %>%
-    filter(id == respondent_id) %>% 
-    #if someone has NA, that meanas they didn't take the wave - 
-    #we assume they didn't move between the last wave they took and the NA wave,
-    #so we use "fill" to impute down (is this the right direction?)
-    fill(value, .direction = "up") %>%
-    #find the MSOA in the previous wave 
-    mutate(previous_value = dplyr::lag(value),
-           #create indicator for the wave in which person newly moved to a place
-           moved = ifelse(value != previous_value & !(is.na(previous_value)), 1, 0)) 
+  # for each mover, get name/code of old place and new place
+  new_area <- out$area_name[out$moved == 1]
+  old_area <- out$previous_name[out$moved == 1]
+  new_code <- out$area_code[out$moved == 1]
+  old_code <- out$previous_code[out$moved == 1]
   
-  #if the person doesn't appear n the data for some reason, just throw them out 
-  if (nrow(dat) == 0){
-    moved <- NA
-    wave_moved <- NA 
-    #if the person does appear, do this:
-  } else {
-    #get vector of whether the person moved in that wave
-    vector <- dat %>% pull(moved)
-    if (1 %in% vector){
-      #if the person moved, assign 1 to indicator
-      moved <- 1
-      #get wave in which the person moved (but what about double-movers?)
-      wave_moved <- dat$wave[which(dat$moved == 1)]
-    } else {
-      #if person didn't move, assign 0 to indicator and NA to wave variable 
-      moved <- 0
-      wave_moved <- NA 
-    }
-  }
-  return(list( respondent_id, wave_moved, moved))
-} 
-
-#write function to unpack the result of parallelized find_wave_moved function
-unpack_multiple_movers <- function(result_output){
+  # get the wave in which the respondent moved
+  wave_moved <- out$wave[out$moved == 1]
   
-  #takes as input the output of the find_wave_moved function that results from %dopar%
-  df_out <- result_output %>%
-    as_tibble() %>% 
-    #unnest the ugly df-list-thing
-    unnest(cols = c(V1, V2, V3)) %>% 
-    group_by(V1) %>% 
-    #this gives us something to use as names_from in the id
-    mutate(id = 1:n()) %>% 
-    ungroup() %>% 
-    #now do the unpacking with magic from chris 
-    pivot_wider(id_cols = V1, names_from = id, 
-                values_from = V2)  %>% 
-    #rename columns to be interpretable
-    rename_with(.fn = function(x) paste0("wave_", x), 
-                .cols = num_range("", 1:12) ) %>% 
-    rename(id = V1) %>% 
-    #make variable for whether person ever moved
-    mutate(moved = ifelse(!is.na(wave_1), 1, 0))
-  
-  return(df_out)
-  
+  return(list(respondent_id, new_area, old_area,
+              new_code, old_code, wave_moved))
 }
 
+# function for unpacking the result of the find_movers function
+unpack_result <- function(result){
+  # result = output of parallelized find_movers function
+  out <- result_pcon %>% 
+    as_tibble() %>% 
+    unnest(cols = c(V1, V2, V3, V4, V5, V6 )) %>% 
+    rename(id = V1, 
+           new_area = V2, old_area = V3, 
+           new_code = V4, old_code = V5, 
+           wave_moved = V6) 
+}
 
-#get the right columns, get them in the right order, pivot the data longer
-pcon_df <- df %>% 
+# prepare pcon data 
+pcon_data <- in_wave_21 %>% 
   select(id, starts_with("pcon")) %>% 
-  pivot_longer(cols = pconW1:pconW21,
-               names_to = "wave", 
-               values_to = "value") %>% 
-  mutate(wave= str_remove(wave,"pconW"))
+  pivot_longer(cols = pconW1:pconW21, 
+               names_to = "wave",
+               values_to = "area_code") %>% 
+  mutate(wave = str_remove(wave, "pconW"),
+         area_name = labelled::to_factor(area_code),
+         area_code = as.numeric(area_code))
+  
 
-# run the function over constituencies 
+
+# run function on the pcon data
 result_pcon <- foreach(i = 1:length(ids),
                        .combine = rbind, 
                        .packages = "tidyverse") %dopar% {
-                         find_wave_moved(pcon_df, ids[i])
+                         find_movers(pcon_data, 
+                                         ids[i])
                        }
+# unpack the pcon data
+pcon_out <- unpack_result(result_pcon) %>% 
+  # filter out people who weren't in a constituency, or aren't in one now
+  filter(new_area != "NOT in a 2010 Parliamentary Constituency" & 
+           old_area != "NOT in a 2010 Parliamentary Constituency")
+  
 
-moved_pcon_df <- unpack_multiple_movers(result_pcon)
-
-
-
-# do the same for regions 
-gor_df <- df %>% 
+# do the same for the region data 
+gor_data <- in_wave_21 %>% 
   select(id, starts_with("gor")) %>% 
   pivot_longer(cols = gorW1:gorW21, 
-               names_to = "wave", 
-               values_to = "value") %>% 
-  mutate(wave = str_remove(wave, "gorW"))
+               names_to = "wave",
+               values_to = "area_code") %>% 
+  mutate(wave = str_remove(wave, "gorW"),
+         area_name = labelled::to_factor(area_code),
+         area_code = as.numeric(area_code))
+# run function on the pcon data
+result_gor <- foreach(i = 1:length(ids),
+                       .combine = rbind, 
+                       .packages = "tidyverse") %dopar% {
+                         find_movers(gor_data, 
+                                     ids[i])
+                       }
+# unpack the pcon data
+gor_out <- unpack_result(result_gor) 
 
-result_gor <- foreach(i = 1:length(ids), 
-                      .combine = rbind, 
-                      .packages = "tidyverse") %dopar% { 
-                        find_wave_moved(gor_df, ids[i])
-                      }
-
-
-# now get the names of each constituency 
 
 
 
