@@ -65,7 +65,7 @@ find_movers <- function(dataframe, respondent_id){
 # function for unpacking the result of the find_movers function
 unpack_result <- function(result){
   # result = output of parallelized find_movers function
-  out <- result_pcon %>% 
+  out <- result %>% 
     as_tibble() %>% 
     unnest(cols = c(V1, V2, V3, V4, V5, V6 )) %>% 
     rename(id = V1, 
@@ -102,7 +102,12 @@ pcon_out <- unpack_result(result_pcon) %>%
 
 # do the same for the region data 
 gor_data <- in_wave_21 %>% 
-  select(id, starts_with("gor")) %>% 
+  select(id, gorW1, gorW2, gorW3, 
+                gorW4, gorW5, gorW6, gorW7, 
+                gorW8, gorW9, gorW10, gorW11, 
+                gorW12, gorW13, gorW14, gorW15, 
+                gorW16, gorW17, gorW18, gorW19, 
+                gorW20, gorW21) %>% 
   pivot_longer(cols = gorW1:gorW21, 
                names_to = "wave",
                values_to = "area_code") %>% 
@@ -119,8 +124,34 @@ result_gor <- foreach(i = 1:length(ids),
 # unpack the pcon data
 gor_out <- unpack_result(result_gor) 
 
+# put together the region and pcon data
+out <- left_join(gor_out, pcon_out, 
+          by = "id",
+          suffix = c("_gor",'_pcon'))
+
+# what to do about people who moved multiple times ? 
 
 
+# read in region income data
+# region_income <- read_csv("data/region_data/region_gva_indices_historical.csv")
+region_income <- read_csv("region_gva_indices_historical.csv") %>% 
+  slice(-(1:3))
 
+names(region_income) <- c("period",
+                          "North East","Yorkshire and The Humber",
+                          "East Midlands","East of England", "London",
+                          "South East","South West", "West Midlands",
+                          "North West","Wales","Scotland", "Northern Ireland")
+region_income <- region_income %>% 
+  pivot_longer(cols = `North East`:`Northern Ireland`,
+               names_to = "region",
+               values_to = "gva_index") %>% 
+  filter(str_detect(period, "Q1") == TRUE) %>% 
+  mutate(period = as.numeric(str_remove(period, "Q1"))) %>% 
+  group_by(period) %>% 
+  mutate(gva_index_scale = scale(as.numeric(gva_index, na.rm = TRUE)))
+
+#  get the 2021 data to match to regions 
 
 # now match the consituencies to income data
+
