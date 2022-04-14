@@ -146,26 +146,26 @@ I now look at the relationship between these variables and a political outcome -
 local_redist <- lm_robust(data = df, 
            redistSelf ~ localFairShare +  p_edlevel + age + male + p_socgrade + 
              p_gross_household + leftRight,
-           fixed_effects = region)
+           fixed_effects = region, clusters = PCON19CD)
 
 region_redist <- lm_robust(data = df, 
                            redistSelf ~ regionFairShare + p_edlevel + age + male + 
                              p_socgrade  + p_gross_household + leftRight,
-                           fixed_effects = region)
+                           fixed_effects = region, clusters = PCON19CD)
 
 london_local_redist <- lm_robust(data = df, 
            redistSelf ~ london_local_fair_share  + p_edlevel + age + male + p_socgrade + 
              p_gross_household + leftRight, 
-           fixed_effects = region)
+           fixed_effects = region, clusters = PCON19CD)
 
 london_region_redist <- lm_robust(data = df,
                                   redistSelf ~ london_region_fair_share + p_edlevel + age + 
                                     male + p_socgrade + p_gross_household + leftRight,
-                                  fixed_effects = region)
+                                  fixed_effects = PCON19CD, clusters = PCON19CD)
 modelsummary(list(local_redist, region_redist, 
                   london_local_redist, london_region_redist),
              stars = TRUE,
-             output = "latex",
+             output = "markdown",
              coef_map = c("localFairShare" = "Local area gets fair share", 
                              "regionFairShare" = "Region gets fair share",
                              "london_local_fair_share" = "London-local fair share",
