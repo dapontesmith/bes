@@ -43,6 +43,10 @@ full$p_ethnicity <- ifelse(full$p_ethnicity > 14, NA, full$p_ethnicity)
 full$is_white <- ifelse(full$p_ethnicity == 1, 1, 0 )
 full$has_degree <- ifelse(full$p_edlevel > 3, 1, 0)
 full$male <- ifelse(full$gender == 2, 0, full$gender)
+# switch scale of social grade variable, so higher = higher class
+full$p_socgrade <- max(full$p_socgrade, na.rm = TRUE) - full$p_socgrade
+#switch scale of redistriubtion variable, so higher = more support 
+full$redistSelf <- 10 - full$redistSelf
 
 # make variable for perceived idfference between london and local fair shares
 full <- full %>% 
