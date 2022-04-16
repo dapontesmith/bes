@@ -24,25 +24,40 @@ df_labels <- read_csv("data/bes/internet_panel/bes_geo_data_wave1_to_wave21_labe
 redist <- read_csv("data/bes/internet_panel/bes_redist_wave1_to_21.csv")
 redist[redist == 9999] <- NA
 
-# make long version of redist for merging 
-redist_long <- redist %>% 
-  pivot_longer(cols = redistSelfW1:redistSelfW21, 
-               names_to  = "wave",
-               values_to = "redistSelf") %>% 
-  mutate(wave = as.numeric(str_remove(wave, "redistSelfW")),
-         redistSelf = ifelse(redistSelf > 10, NA, redistSelf))
+# write function for reading in demographic variable data and shaping to long 
+read_demographics <- function( variable){
+  # variable = name of varialbe in filepath 
+  # needs to match root variable name in BES (i.e. p_gross_household)
+  
+  # get path
+  path <- paste("data/bes/internet_panel/bes_", variable, 
+                "_data_wave1_to_wave21.csv", sep = "")
+  
+  # this is the string to remove from the "wave" varaible
+  variable_remove <- paste(variable, "W", sep = "")
+  variable_first <- paste(variable, "W1", sep = "")
+  variable_last <- paste(variable, "W21", sep = "")
+  
+  data <- read_csv(path)
+  
+  long <- data %>% 
+    pivot_longer(cols = variable_first:variable_last,
+                 names_to = "wave",
+                 values_to = variable) %>% 
+    mutate(wave = as.numeric(str_remove(wave, variable_remove)))
+  return(long)
+  
+}
+redist_long <- read_demographics("redistSelf")
+income_long <- read_demographics("p_gross_household")
+socgrade_long <- read_demographics("p_socgrade")
+edlevel_long <- read_demographics("p_edlevel")
 
 
-# read in income time-series 
-income <- read_csv("data/bes/internet_panel/bes_income_data_wave1_to_wave21.csv")
+# read in gender data and make long version
+gender <- read_csv("data/bes/internet_panel/bes_gender_data_wave1_to_wave21.csv")
 
-# make long version of income for merging 
-income_long <- income %>% 
-  pivot_longer(cols = p_gross_householdW1:p_gross_householdW21,
-               names_to = 'wave',
-               values_to = 'p_gross_household') %>% 
-  mutate(wave = as.numeric(str_remove(wave, "p_gross_householdW")),
-         p_gross_household = ifelse(p_gross_household > 15, NA, p_gross_household))
+
 
 
 # join long versions of pcon data - get both codes and names 
@@ -92,6 +107,55 @@ ids <- unique(pcon_data$id)
 # function to report the ids of movers, 
 # as well as the wave in which they moved, 
 # and the pcon code of their old and new constituencies 
+test <- pcon_data %>% 
+  #slice(1:5000) %>% 
+  arrange(id, wave) %>% 
+  group_by(id) %>% 
+  fill(area_code, .direction = "up") %>% 
+  fill(area_name, .direction = "up") %>% 
+  #fill(redistSelf, .direction = "up") %>% 
+  #fill(p_gross_household, .direction = "up") %>% 
+  mutate(previous_code = lag(area_code),
+         previous_name = lag(area_name),
+         # find the redist value in previous wave 
+         previous_redist = lag(redistSelf),
+         previous_income = lag(p_gross_household)) %>% 
+  # put variables in nice order for viewing comparison 
+  dplyr::select(id, wave, area_code, previous_code, 
+         area_name, previous_name, 
+         redistSelf, previous_redist, 
+         p_gross_household, previous_income) %>% 
+  # get wave moved 
+  mutate(wave_moved = ifelse(area_code != previous_code & 
+                               !is.na(previous_code), 1, 0)) %>% 
+  # get change in redistribution and income variables 
+  mutate(redist_change = redistSelf - previous_redist, 
+         income_change = p_gross_household - previous_income) %>% 
+  filter(wave_moved == 1 & !is.na(redist_change)) %>% 
+  # join in the pcon data 
+  left_join(., pcon_income, 
+          by = c("area_name" = "PCON19NM")) %>% 
+  left_join(., pcon_income, 
+            by = c("previous_name" = "PCON19NM"),
+            suffix = c("_new","_old")) %>% 
+  # make variables for relative and abolsute change between new and old places
+  mutate(new_old_diff_absolute = median_total_income_new - median_total_income_old, 
+         new_old_diff_relative = median_total_income_scale_new - median_total_income_scale_old)
+         # switch scale of redist variables so higher = more supportive 
+
+
+# read in the pcon data 
+pcon_income <- read_csv("data/uk_geography/pcon_data/pcon_income_data_2018.csv") 
+pcon_income <- pcon_income %>% 
+  dplyr::select(PCON19CD, PCON19NM,
+                median_total_income) %>% 
+  # make the variable numeric
+  mutate(median_total_income = as.numeric(str_remove(median_total_income, ",")),# , 
+         # make scaled version of the variable 
+         median_total_income_scale = scale(median_total_income))
+  
+
+
 find_movers <- function(dataframe, respondent_id){
   out <- dataframe[dataframe$id == respondent_id,] %>% 
     fill(area_code, .direction = "up") %>% 
@@ -221,7 +285,8 @@ test <- left_join(bes,
 # Do movers become more supportive of redistribution when they move to poorer places? 
 local_redist <- lm_robust(data = test, 
                           redist_change ~ new_old_diff_relative + p_edlevel + age + male + p_socgrade + 
-                            income_change + leftRight)
+                            income_change + leftRight, 
+                          fixed_effects = wave_moved)
 
 modelsummary(local_redist, 
              stars = TRUE,

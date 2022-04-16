@@ -183,6 +183,34 @@ modelsummary(list(local_redist, region_redist,
 
 ```
 
+```{r area_rich_poor}
+
+local_redist <- lm_robust(data = df, 
+           redistSelf ~ scale(areaRichPoor) +  localFairShare + p_edlevel + age + male + p_socgrade + 
+             p_gross_household + leftRight,
+           fixed_effects = region, clusters = PCON19CD)
+
+region_redist <- lm_robust(data = df, 
+                           redistSelf ~ regionFairShare + p_edlevel + age + male + 
+                             p_socgrade  + p_gross_household + leftRight,
+                           fixed_effects = region, clusters = PCON19CD)
+
+london_local_redist <- lm_robust(data = df, 
+           redistSelf ~ london_local_fair_share  + p_edlevel + age + male + p_socgrade + 
+             p_gross_household + leftRight, 
+           fixed_effects = region, clusters = PCON19CD)
+
+london_region_redist <- lm_robust(data = df,
+                                  redistSelf ~ london_region_fair_share + p_edlevel + age + 
+                                    male + p_socgrade + p_gross_household + leftRight,
+                                  fixed_effects = PCON19CD, clusters = PCON19CD)
+modelsummary(local_redist, 
+             stars = TRUE,
+             output = "markdown")
+
+
+```
+
 
 
 Let us first look at models 1 and 2. In each model, the key coefficients are negative and significant: As respondents believe their local area or region receive increasingly "fair" shares of central government spending, their preferences for generalized redistribution decrease. Models 3 and 4 look at respondent's perceptions that London receives an undue amount of central spending - this may capture perceptions of peripheralness, or perhaps place-based economic resentment. In both models, the coefficients are positive and significant: Respondents who believe London receives too much spending are also more favorable towards redistribution. Across all four models, the coefficients in the local-area models (1 and 3) are larger than in the regional models (2 and 4); this suggests that local areas may be \textit{more} salient to voters than are regions. The broad takeaway from these models, as I see it, is that perceptions of deservingness do correspond with preferences over redistribution. 
