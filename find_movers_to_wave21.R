@@ -25,6 +25,20 @@ df_labels <- read_csv("data/bes/internet_panel/bes_geo_data_wave1_to_wave21_labe
 pcon_region_lookup <- read_csv("data/uk_geography/pcon_data/pcon_region_lookup_2019.csv")
 # read in pcon_unemploment
 pcon_unemployment <- read_csv("data/uk_geography/pcon_data/pcon_unemployment_to_2010.csv")
+# clean up the pcon unemployment dataframe
+pcon_unemployment <- pcon_unemployment %>% 
+  dplyr::select(ONSConstID, 
+                ConstituencyName, 
+                DateOfDataset, 
+                UnempConstRate,
+                UnempCountryRate) %>% 
+  # make scaled version of constituency unemployment by date
+  group_by(DateOfDataset) %>% 
+  mutate(UnempConstRate_scale = scale(UnempConstRate),
+         # make difference between national and constituency unemployment, scaled and unscaled
+         pcon_nat_rate_diff = UnempConstRate - UnempCountryRate, 
+         pcon_nat_rate_diff_scale = scale(pcon_nat_rate_diff)) %>% 
+  dplyr::select(-UnempCountryRate)
 
 # write function for reading in demographic variable data and shaping to long 
 read_demographics <- function( variable){
@@ -55,7 +69,9 @@ read_demographics <- function( variable){
   return(long)
   
 }
-redist_long <- read_demographics("redistSelf")
+redist_long <- read_demographics("redistSelf") %>% 
+  # switch scale of redistribution variable so higher = more supportive
+  mutate(redistSelf = 10-redistSelf)
 income_long <- read_demographics("p_gross_household") %>% 
   mutate(p_gross_household = ifelse(
     p_gross_household > 15, NA, p_gross_household
@@ -90,6 +106,11 @@ starttimes <- starttimes %>%
     month_char == "dec" ~ 12
   ))
 
+starttimes <- starttimes %>% 
+  mutate(date_full = paste(month, "/1/",year, sep = ""))
+
+
+
 # read in gender data 
 gender <- read_csv("data/bes/internet_panel/bes_gender_data_wave1_to_wave21.csv")
 gender <- gender %>% 
@@ -100,7 +121,8 @@ gender <- gender %>%
 # read in the pcon data 
 pcon_income <- read_csv("data/uk_geography/pcon_data/pcon_income_data_2018.csv") 
 pcon_income <- pcon_income %>% 
-  dplyr::select(PCON19CD, PCON19NM) %>% 
+  dplyr::select(PCON19CD, PCON19NM,
+                median_total_income) %>% 
   # make the variable numeric
   mutate(median_total_income = as.numeric(str_remove(median_total_income, ",")),# , 
          # make scaled version of the variable 
@@ -132,7 +154,8 @@ pcon_data <- left_join(df %>%
   # join income data 
   left_join(., income_long, 
             by = c("id",'wave')) %>% 
-  left_join(., gender, by = "id") %>% 
+  left_join(., gender, 
+            by = "id") %>% 
   left_join(., edlevel_long, 
             by = c("id","wave")) %>% 
   left_join(., socgrade_long, 
@@ -159,10 +182,6 @@ gor_data <- left_join(df %>%
                     mutate(wave = as.numeric(str_remove(wave, "gorW"))), 
                   by = c("id", "wave"))
 
-
-#get all the unique ids - will loop over this 
-ids <- unique(pcon_data$id)
-
 #sample <- pcon_data %>% sample_n(., size = 3000)
 # function to report the ids of movers, 
 # as well as the wave in which they moved, 
@@ -174,6 +193,14 @@ out <- pcon_data %>%
   # impute geographies in missing survey waves 
   fill(area_code, .direction = "up") %>% 
   fill(area_name, .direction = "up") %>% 
+  # join in the dates of each survey using starttimes df 
+  left_join(., starttimes %>% 
+              dplyr::select(id, wave, date_full), 
+            by = c("id","wave")) %>% 
+  # join the pcon unemployment data based on survey dates 
+  left_join(., pcon_unemployment, 
+            by = c("area_name" = "ConstituencyName", 
+                   "date_full" = "DateOfDataset")) %>% 
   #fill(redistSelf, .direction = "up") %>% 
   #fill(p_gross_household, .direction = "up") %>% 
   mutate(previous_code = lag(area_code),
@@ -184,17 +211,22 @@ out <- pcon_data %>%
          previous_edlevel = lag(p_edlevel), 
          previous_socgrade = lag(p_socgrade),
          previous_leftRight = lag(leftRight),
-         previous_age = lag(age)) %>% 
+         previous_age = lag(age),
+         previous_UnempConstRate = lag(UnempConstRate),
+         previous_UnempConstRate_scale = lag(UnempConstRate_scale),
+         previous_pcon_nat_rate_diff = lag(pcon_nat_rate_diff),
+         previous_pcon_nat_rate_diff_scale = lag(pcon_nat_rate_diff_scale)) %>% 
   # put variables in nice order for viewing comparison 
-  dplyr::select(id, wave, area_code, previous_code, 
-         area_name, previous_name, 
-         redistSelf, previous_redist, 
-         p_gross_household, previous_income,
-         p_socgrade, previous_socgrade, 
-         p_edlevel, previous_edlevel, 
-         leftRight, previous_leftRight, 
-         age, previous_age, 
-         male) %>% 
+  # dplyr::select(id, wave, area_code, previous_code, 
+  #        area_name, previous_name, 
+  #        redistSelf, previous_redist, 
+  #        p_gross_household, previous_income,
+  #        p_socgrade, previous_socgrade, 
+  #        p_edlevel, previous_edlevel, 
+  #        leftRight, previous_leftRight, 
+  #        age, previous_age,
+  #        UnempConstRate, previous_UnempConstRate
+  #        male) %>% 
   # get wave moved 
   mutate(wave_moved = ifelse(area_code != previous_code & 
                                !is.na(previous_code), 1, 0)) %>% 
@@ -204,7 +236,11 @@ out <- pcon_data %>%
          socgrade_change = p_socgrade - previous_socgrade, 
          edlevel_change = p_edlevel - previous_edlevel,
          leftRight_change = leftRight - previous_leftRight,
-         age_change = age - previous_age) %>% 
+         age_change = age - previous_age,
+         UnempConstRate_change = UnempConstRate - previous_UnempConstRate, 
+         UnempConstRate_scale_change = UnempConstRate_scale - previous_UnempConstRate_scale,
+         pcon_nat_rate_diff_change = pcon_nat_rate_diff - previous_pcon_nat_rate_diff, 
+         pcon_nat_rate_diff_scale_change = pcon_nat_rate_diff_scale - previous_pcon_nat_rate_diff_scale) %>% 
   # get only the moving wave 
   filter(wave_moved == 1 & !is.na(redist_change)) %>% 
   # join in the pcon data 
@@ -216,19 +252,22 @@ out <- pcon_data %>%
   # make variables for relative and abolsute change between new and old places
   mutate(new_old_diff_absolute = median_total_income_new - median_total_income_old, 
          new_old_diff_relative = median_total_income_scale_new - median_total_income_scale_old) %>% 
+  # join in hte region lookup, to get region names in there as well 
   left_join(., pcon_region_lookup, 
-            by = c("area_name" = "PCON19NM"))
+            by = c("area_name" = "PCON19NM")) 
+  
+  
          # switch scale of redist variables so higher = more supportive 
-# join in hte region lookup, to get region names in there as well 
+
 
 
 
 # Do movers become more supportive of redistribution when they move to poorer places? 
 local_redist <- lm_robust(data = out, 
-                          redist_change ~ new_old_diff_relative + edlevel_change + 
-                            income_change + socgrade_change + male + leftRight_change + 
-                            age_change, 
-                          fixed_effects = region)
+                          redistSelf ~ median_total_income_scale_new + edlevel_change + 
+                            income_change + p_socgrade + male + leftRight + age,
+                        clusters = wave,
+                        fixed_effects = wave)
 
 modelsummary(local_redist, stars = TRUE)
 
