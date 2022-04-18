@@ -21,6 +21,10 @@ df <- read_csv("data/bes/internet_panel/bes_geo_data_wave1_to_wave21.csv")
 # read in labelled geographic data
 df_labels <- read_csv("data/bes/internet_panel/bes_geo_data_wave1_to_wave21_labelled.csv")
 
+# read in pcon_region lookup
+pcon_region_lookup <- read_csv("data/uk_geography/pcon_data/pcon_region_lookup_2019.csv")
+# read in pcon_unemploment
+pcon_unemployment <- read_csv("data/uk_geography/pcon_data/pcon_unemployment_to_2010.csv")
 
 # write function for reading in demographic variable data and shaping to long 
 read_demographics <- function( variable){
@@ -61,21 +65,27 @@ socgrade_long <- read_demographics("p_socgrade") %>%
     p_socgrade == 8, NA, p_socgrade
   ))
 edlevel_long <- read_demographics("p_edlevel")
+leftRight_long <- read_demographics("leftRight")
+age_long <- read_demographics("age")
 
 
-# read in gender data and make long version
+# read in gender data 
 gender <- read_csv("data/bes/internet_panel/bes_gender_data_wave1_to_wave21.csv")
+gender <- gender %>% 
+  mutate(male = ifelse(gender == 1, 1, 0)) %>% 
+  dplyr::select(-gender)
 
 
 # read in the pcon data 
 pcon_income <- read_csv("data/uk_geography/pcon_data/pcon_income_data_2018.csv") 
 pcon_income <- pcon_income %>% 
   dplyr::select(PCON19CD, PCON19NM,
-                median_total_income) %>% 
   # make the variable numeric
   mutate(median_total_income = as.numeric(str_remove(median_total_income, ",")),# , 
          # make scaled version of the variable 
          median_total_income_scale = scale(median_total_income))
+
+# NEED TO GET DATES OF SURVEY WAVES TO ACCURATELY MATCH TO UNEMPLOYMENT ESTMATES 
 
 
 
@@ -105,7 +115,11 @@ pcon_data <- left_join(df %>%
   left_join(., edlevel_long, 
             by = c("id","wave")) %>% 
   left_join(., socgrade_long, 
-            by = c("id","wave"))
+            by = c("id","wave")) %>% 
+  left_join(., age_long, 
+            by = c("id","wave")) %>% 
+  left_join(., leftRight_long, 
+            by = c('id',"wave"))
     
 
 # do the same for the region data - COME BACK TO THIS LATER 
@@ -147,15 +161,19 @@ out <- pcon_data %>%
          previous_redist = lag(redistSelf),
          previous_income = lag(p_gross_household),
          previous_edlevel = lag(p_edlevel), 
-         previous_socgrade = lag(p_socgrade)) %>% 
+         previous_socgrade = lag(p_socgrade),
+         previous_leftRight = lag(leftRight),
+         previous_age = lag(age)) %>% 
   # put variables in nice order for viewing comparison 
   dplyr::select(id, wave, area_code, previous_code, 
          area_name, previous_name, 
          redistSelf, previous_redist, 
          p_gross_household, previous_income,
-         p_socgrade, previous_socigrade, 
+         p_socgrade, previous_socgrade, 
          p_edlevel, previous_edlevel, 
-         gender) %>% 
+         leftRight, previous_leftRight, 
+         age, previous_age, 
+         male) %>% 
   # get wave moved 
   mutate(wave_moved = ifelse(area_code != previous_code & 
                                !is.na(previous_code), 1, 0)) %>% 
@@ -163,7 +181,9 @@ out <- pcon_data %>%
   mutate(redist_change = redistSelf - previous_redist, 
          income_change = p_gross_household - previous_income,
          socgrade_change = p_socgrade - previous_socgrade, 
-         edlevel_change = p_edlevel - previous_edlevel) %>% 
+         edlevel_change = p_edlevel - previous_edlevel,
+         leftRight_change = leftRight - previous_leftRight,
+         age_change = age - previous_age) %>% 
   # get only the moving wave 
   filter(wave_moved == 1 & !is.na(redist_change)) %>% 
   # join in the pcon data 
@@ -174,10 +194,22 @@ out <- pcon_data %>%
             suffix = c("_new","_old")) %>% 
   # make variables for relative and abolsute change between new and old places
   mutate(new_old_diff_absolute = median_total_income_new - median_total_income_old, 
-         new_old_diff_relative = median_total_income_scale_new - median_total_income_scale_old)
+         new_old_diff_relative = median_total_income_scale_new - median_total_income_scale_old) %>% 
+  left_join(., pcon_region_lookup, 
+            by = c("area_name" = "PCON19NM"))
          # switch scale of redist variables so higher = more supportive 
+# join in hte region lookup, to get region names in there as well 
 
 
+
+# Do movers become more supportive of redistribution when they move to poorer places? 
+local_redist <- lm_robust(data = out, 
+                          redist_change ~ new_old_diff_relative + edlevel_change + 
+                            income_change + socgrade_change + male + leftRight_change + 
+                            age_change, 
+                          fixed_effects = region)
+
+modelsummary(local_redist, stars = TRUE)
 
 
 find_movers <- function(dataframe, respondent_id){
