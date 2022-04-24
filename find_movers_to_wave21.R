@@ -38,7 +38,10 @@ pcon_unemployment <- pcon_unemployment %>%
          # make difference between national and constituency unemployment, scaled and unscaled
          pcon_nat_rate_diff = UnempConstRate - UnempCountryRate, 
          pcon_nat_rate_diff_scale = scale(pcon_nat_rate_diff)) %>% 
-  dplyr::select(-UnempCountryRate)
+  dplyr::select(-UnempCountryRate) %>% 
+  # fix the may 2014 date
+  mutate(DateOfDataset = ifelse(DateOfDataset == "5/3/2014", "5/1/2014", DateOfDataset)) 
+  
 
 # write function for reading in demographic variable data and shaping to long 
 read_demographics <- function( variable){
@@ -165,23 +168,6 @@ pcon_data <- left_join(df %>%
   left_join(., leftRight_long, 
             by = c('id',"wave"))
     
-
-# do the same for the region data - COME BACK TO THIS LATER 
-gor_data <- left_join(df %>% 
-                    dplyr::select(id, starts_with("gor")) %>% 
-                    pivot_longer(cols = gorW1:gorW21, 
-                                 names_to = "wave",
-                                 values_to = "area_code") %>% 
-                    mutate(wave = as.numeric(str_remove(wave, "gorW")))
-                  
-                  , df_labels %>% 
-                    dplyr::select(id, starts_with("gor")) %>% 
-                    pivot_longer(cols = gorW1:gorW21,
-                                 names_to = "wave",
-                                 values_to = "area_name") %>% 
-                    mutate(wave = as.numeric(str_remove(wave, "gorW"))), 
-                  by = c("id", "wave"))
-
 #sample <- pcon_data %>% sample_n(., size = 3000)
 # function to report the ids of movers, 
 # as well as the wave in which they moved, 
@@ -197,6 +183,8 @@ out <- pcon_data %>%
   left_join(., starttimes %>% 
               dplyr::select(id, wave, date_full), 
             by = c("id","wave")) %>% 
+  # this is dubious, but assign january 2021 data to may 2021 wave, so as to reduce NAs
+  mutate(date_full = ifelse(date_full == "5/1/2021", "1/1/2021", date_full)) %>% 
   # join the pcon unemployment data based on survey dates 
   left_join(., pcon_unemployment, 
             by = c("area_name" = "ConstituencyName", 
@@ -230,6 +218,10 @@ out <- pcon_data %>%
   # get wave moved 
   mutate(wave_moved = ifelse(area_code != previous_code & 
                                !is.na(previous_code), 1, 0)) %>% 
+  # get only the moving wave 
+  filter(wave_moved == 1 & 
+           # filter out people not in a constituency 
+           area_name != "NOT in a 2010 Parliamentary Constituency") %>% 
   # get change in redistribution and income variables 
   mutate(redist_change = redistSelf - previous_redist, 
          income_change = p_gross_household - previous_income,
@@ -241,8 +233,7 @@ out <- pcon_data %>%
          UnempConstRate_scale_change = UnempConstRate_scale - previous_UnempConstRate_scale,
          pcon_nat_rate_diff_change = pcon_nat_rate_diff - previous_pcon_nat_rate_diff, 
          pcon_nat_rate_diff_scale_change = pcon_nat_rate_diff_scale - previous_pcon_nat_rate_diff_scale) %>% 
-  # get only the moving wave 
-  filter(wave_moved == 1 & !is.na(redist_change)) %>% 
+ 
   # join in the pcon data 
   left_join(., pcon_income, 
           by = c("area_name" = "PCON19NM")) %>% 
@@ -257,17 +248,25 @@ out <- pcon_data %>%
             by = c("area_name" = "PCON19NM")) 
   
   
-         # switch scale of redist variables so higher = more supportive 
 
+sum(is.na(out$UnempConstRate))
+
+
+test <- out %>% 
+  filter(!is.na(UnempConstRate)) %>% # this gets rid of 27 observations
+  mutate(pcon_unemployment_above_national = ifelse(pcon_nat_rate_diff > 0, 1, 0),
+         previous_pcon_unemployment_above_national = ifelse(
+           previous_pcon_nat_rate_diff > 0, 1, 0
+         ))
 
 
 
 # Do movers become more supportive of redistribution when they move to poorer places? 
-local_redist <- lm_robust(data = out, 
-                          redistSelf ~ median_total_income_scale_new + edlevel_change + 
-                            income_change + p_socgrade + male + leftRight + age,
-                        clusters = wave,
-                        fixed_effects = wave)
+local_redist <- lm_robust(data = test, 
+                          redist_change ~ UnempConstRate_change*income_change 
+                          + p_edlevel  + socgrade_change + male + leftRight_change + age,
+                          se_type = "stata",
+                          fixed_effects = area_name)
 
 modelsummary(local_redist, stars = TRUE)
 

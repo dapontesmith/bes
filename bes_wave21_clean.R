@@ -19,6 +19,7 @@ full <- full %>%
          leftRight, redistSelf, euID, immigSelf, ends_with("ness"),
          starts_with("conLook"), starts_with("labLook"),
          ends_with("FairShare"), starts_with("map"), amenities,
+         changeInequality,
          starts_with('area'), ends_with("a_1"),
          starts_with("subjClass"),
          ends_with("Econ"),
