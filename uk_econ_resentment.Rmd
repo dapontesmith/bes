@@ -23,25 +23,25 @@ knitr::opts_chunk$set(echo = TRUE)
  setwd("C:/Users/dapon/Dropbox/Harvard/dissertation/data")
  df <- read_csv("bes/internet_panel/clean_data/bes_wave21_clean.csv")
 #df <- read_csv("bes_wave21_clean.csv")
-#read in region shapefile, rename regions
-shp <- st_read("uk_geography/shapefiles/NUTS_Level_1_(January_2018)_Boundaries.shp")
-# #change coordinate system to WGS 84
-shp <- st_transform(shp, "+proj=longlat +datum=WGS84") %>%
-  mutate(region = case_when(
-    nuts118cd == "UKC" ~ "North East",
-    nuts118cd == "UKD" ~ "North West",
-    nuts118cd == "UKE" ~ "Yorkshire and the Humber",
-    nuts118cd == "UKF" ~ "East Midlands",
-    nuts118cd == "UKG" ~ "West Midlands",
-    nuts118cd == "UKH" ~ "East of England",
-    nuts118cd == "UKI" ~ "London",
-    nuts118cd == "UKJ" ~ "South East",
-    nuts118cd == "UKK" ~"South West",
-    nuts118cd == "UKL" ~ "Wales",
-    nuts118cd == "UKM" ~ "Scotland",
-    nuts118cd == "UKN" ~ "Northern Ireland",
-  )) %>%
-  filter(region != "Northern Ireland")
+# #read in region shapefile, rename regions
+# shp <- st_read("uk_geography/shapefiles/NUTS_Level_1_(January_2018)_Boundaries.shp")
+# # #change coordinate system to WGS 84
+# shp <- st_transform(shp, "+proj=longlat +datum=WGS84") %>%
+#   mutate(region = case_when(
+#     nuts118cd == "UKC" ~ "North East",
+#     nuts118cd == "UKD" ~ "North West",
+#     nuts118cd == "UKE" ~ "Yorkshire and the Humber",
+#     nuts118cd == "UKF" ~ "East Midlands",
+#     nuts118cd == "UKG" ~ "West Midlands",
+#     nuts118cd == "UKH" ~ "East of England",
+#     nuts118cd == "UKI" ~ "London",
+#     nuts118cd == "UKJ" ~ "South East",
+#     nuts118cd == "UKK" ~"South West",
+#     nuts118cd == "UKL" ~ "Wales",
+#     nuts118cd == "UKM" ~ "Scotland",
+#     nuts118cd == "UKN" ~ "Northern Ireland",
+#   )) %>%
+#   filter(region != "Northern Ireland")
 ```
 
 
@@ -183,30 +183,66 @@ modelsummary(list(local_redist, region_redist,
 
 ```
 
+
+This set of models looks at the relationship between redistribution preferences and three other variables that measure perceptions of overall inequality, of geographic deservingness, and of perceptions of an area's relative standing in the UK's overall wealth distribution. I intend these models will help us understand whether the strong relationship, found above, between redistribution preferences and perceptions for deservingness are independent of - and survive when controlling for - concerns about inequality more generally and geographic inequality in particular. 
+
+The two new variables in this section are the overall-inequality and geographic-inequality variables. The former is an item that asks respondents about whether they believe "economic inequality" is changing in the UK; responses ranged on a five-point scale, from "getting much lower" to "getting much higher." The majority of respondents indicated they believe inequality is worsening in the UK. The variable on \textit{geographic} inequality derives from an item that asks respondents to rank their own local community in the UK's overall wealth distribution. Responses cold range from 1 to 100, with 1 indicating the community is among the poorest, while 100 indicates the community is among the richest and 50 indicates the community is at the median. Just over half of respondents rank their areas as below the median in wealth; the distribution of the variable is roughly normal. 
+
+
 ```{r area_rich_poor}
 
-local_redist <- lm_robust(data = df, 
-           redistSelf ~ scale(areaRichPoor) +  localFairShare + p_edlevel + age + male + p_socgrade + 
+redist_changeInequality <- lm_robust(data = df, 
+           redistSelf ~ changeInequality + 
+             p_edlevel + age + male + p_socgrade + 
              p_gross_household + leftRight,
            fixed_effects = region, clusters = PCON19CD)
 
-region_redist <- lm_robust(data = df, 
-                           redistSelf ~ regionFairShare + p_edlevel + age + male + 
-                             p_socgrade  + p_gross_household + leftRight,
-                           fixed_effects = region, clusters = PCON19CD)
-
-london_local_redist <- lm_robust(data = df, 
-           redistSelf ~ london_local_fair_share  + p_edlevel + age + male + p_socgrade + 
-             p_gross_household + leftRight, 
+redist_changeInequality_areaRichPoor <- lm_robust(data = df, 
+           redistSelf ~ changeInequality + scale(areaRichPoor) + 
+             p_edlevel + age + male + p_socgrade + 
+             p_gross_household + leftRight,
            fixed_effects = region, clusters = PCON19CD)
 
-london_region_redist <- lm_robust(data = df,
-                                  redistSelf ~ london_region_fair_share + p_edlevel + age + 
-                                    male + p_socgrade + p_gross_household + leftRight,
-                                  fixed_effects = PCON19CD, clusters = PCON19CD)
-modelsummary(local_redist, 
+redist_changeInequality_areaRichPoor_interact <- lm_robust(data = df, 
+           redistSelf ~ changeInequality*scale(areaRichPoor) + 
+             p_edlevel + age + male + p_socgrade + 
+             p_gross_household + leftRight,
+           fixed_effects = region, clusters = PCON19CD)
+
+redist_changeInequality_areaRichPoor_localFairShare <- lm_robust(data = df, 
+           redistSelf ~ changeInequality + scale(areaRichPoor) + localFairShare + 
+             p_edlevel + age + male + p_socgrade + 
+             p_gross_household + leftRight,
+           fixed_effects = region, clusters = PCON19CD)
+
+
+
+
+modelsummary(list(redist_changeInequality,
+                  redist_changeInequality_areaRichPoor, 
+                  redist_changeInequality_areaRichPoor_interact,
+                  redist_changeInequality_areaRichPoor_localFairShare), 
              stars = TRUE,
-             output = "markdown")
+             output = "markdown",
+             coef_map = c(
+               "changeInequality" = "Perceived change in inequality",
+               "scale(areaRichPoor)" = "Local area is relatively poor/rich", 
+               "changeInequality:scale(areaRichPoor)" = "Change in inequality * local poor/rich",
+               "localFairShare" = "Local area gets fair share", 
+               "leftRight" = "Left-right placement"
+             ))
+
+
+coef_map = c(
+               "scale(areaRichPoor)" = "Relative perceptions of local economy as rich-poor",
+               "localFairShare" = "Local area gets fair share",
+               "p_edlevel" = "Education",
+               "age" = "Age",
+               "male" = "Male",
+                "p_socgrade" = "Social grade (higher values = lower)",
+               "p_gross_household" = "Income", 
+               "leftRight" = "Left-right placement"
+             ))
 
 
 ```

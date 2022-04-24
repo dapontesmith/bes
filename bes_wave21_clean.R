@@ -56,7 +56,13 @@ full <- full %>%
          london_local_econ = londonEcon - localEcon,
          # do the same for region
          london_region_fair_share = londonFairShare - regionFairShare, 
-         london_region_econ = londonEcon - regionEcon)
+         london_region_econ = londonEcon - regionEcon) %>% 
+# make binary variable for perceiving area as richer or poorer than median 
+  mutate(areaRichPoor_binary_rich = case_when(
+    areaRichPoor <= median(areaRichPoor, na.rm = TRUE) ~ 0,
+    areaRichPoor > median(areaRichPoor, na.rm = TRUE) ~ 1,
+    TRUE ~ as.numeric(areaRichPoor)
+  ))
 
 # handle some issues with geographic data
 full <- full %>% 
@@ -91,10 +97,6 @@ full <- full %>%
   ))
 
 # TO DO - CODE VARAIBLE FOR VOTE CHOICE AT LAST ELECTION 
-
-# reverse the scale of the redistribution varaible, 
-# so higher values = higher support for redistribution
-full$redistSelf <- max(full$redistSelf, na.rm = TRUE) - full$redistSelf
 
 # merge parlitools 2019 data with the dataframe
 
