@@ -187,7 +187,7 @@ modelsummary(list(local_redist, region_redist,
 
 This set of models looks at the relationship between redistribution preferences and three other variables that measure perceptions of overall inequality, of geographic deservingness, and of perceptions of an area's relative standing in the UK's overall wealth distribution. I intend these models will help us understand whether the strong relationship, found above, between redistribution preferences and perceptions for deservingness are independent of - and survive when controlling for - concerns about inequality more generally and geographic inequality in particular. 
 
-The two new variables in this section are the overall-inequality and geographic-inequality variables. The former is an item that asks respondents about whether they believe "economic inequality" is changing in the UK; responses ranged on a five-point scale, from "getting much lower" to "getting much higher." The majority of respondents indicated they believe inequality is worsening in the UK. The variable on \textit{geographic} inequality derives from an item that asks respondents to rank their own local community in the UK's overall wealth distribution. Responses cold range from 1 to 100, with 1 indicating the community is among the poorest, while 100 indicates the community is among the richest and 50 indicates the community is at the median. Just over half of respondents rank their areas as below the median in wealth; the distribution of the variable is roughly normal. 
+The two new variables in this section are the overall-inequality and geographic-inequality variables. The former is an item that asks respondents about whether they believe "economic inequality" is changing in the UK; responses ranged on a five-point scale, from "getting much lower" to "getting much higher." The majority of respondents indicated they believe inequality is worsening in the UK. The variable on \textit{geographic} inequality derives from an item that asks respondents to rank their own local community in the UK's overall wealth distribution. Responses cold range from 1 to 100, with 1 indicating the community is among the poorest, while 100 indicates the community is among the richest and 50 indicates the community is at the median. Just over half of respondents rank their areas as below the median in wealth; the distribution of the variable is roughly normal. Some analyses split this variable at the median, to create a binary indicator of whether the respondent believes their area is poorer or richer than the median one, 
 
 
 ```{r area_rich_poor}
@@ -265,6 +265,16 @@ redist_changeInequality_areaRichPoor_lm <- lm(data = df,
 plot((ggpredict(redist_changeInequality_areaRichPoor_lm,
                 terms = c("localFairShare", "areaRichPoor_binary_rich"))))
 
+
+mod <- lm(data = df, 
+                 redistSelf ~ mapHouse*areaRichPoor_binary_rich + 
+                   p_edlevel + age + male + p_socgrade + 
+                   p_gross_household + leftRight + as.factor(region))
+modelsummary(mod, 
+             stars = TRUE,
+             output = "markdown")
+plot(ggpredict(mod, 
+               terms = c("mapHouse", "areaRichPoor_binary_rich")))
 
 ```
 
