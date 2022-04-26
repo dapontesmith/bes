@@ -21,7 +21,8 @@ library(DescTools)
 
 knitr::opts_chunk$set(echo = TRUE)
  setwd("C:/Users/dapon/Dropbox/Harvard/dissertation/data")
- df <- read_csv("bes/internet_panel/clean_data/bes_wave21_clean.csv")
+ df <- read_csv("bes/internet_panel/clean_data/bes_wave21_clean.csv") 
+ df$areaRichPoor_scale <- scale(df$areaRichPoor)[,1]
 #df <- read_csv("bes_wave21_clean.csv")
 # #read in region shapefile, rename regions
 # shp <- st_read("uk_geography/shapefiles/NUTS_Level_1_(January_2018)_Boundaries.shp")
@@ -195,25 +196,36 @@ redist_changeInequality <- lm_robust(data = df,
            redistSelf ~ changeInequality + 
              p_edlevel + age + male + p_socgrade + 
              p_gross_household + leftRight,
-           fixed_effects = region, clusters = PCON19CD)
+           fixed_effects = PCON19CD, clusters = PCON19CD)
 
 redist_changeInequality_areaRichPoor <- lm_robust(data = df, 
-           redistSelf ~ changeInequality + scale(areaRichPoor) + 
+           redistSelf ~ changeInequality + areaRichPoor_scale + 
              p_edlevel + age + male + p_socgrade + 
              p_gross_household + leftRight,
-           fixed_effects = region, clusters = PCON19CD)
+           fixed_effects = PCON19CD, clusters = PCON19CD)
 
 redist_changeInequality_areaRichPoor_interact <- lm_robust(data = df, 
            redistSelf ~ changeInequality*scale(areaRichPoor) + 
              p_edlevel + age + male + p_socgrade + 
              p_gross_household + leftRight,
-           fixed_effects = region, clusters = PCON19CD)
+           fixed_effects = PCON19CD, clusters = PCON19CD)
+
+
+redist_localFairShare_areaRichPoor_interact <- lm_robust(data = df, 
+           redistSelf ~ localFairShare*areaRichPoor_binary_rich + changeInequality + 
+             p_edlevel + age + male + p_socgrade + 
+             p_gross_household + leftRight,
+           fixed_effects = PCON19CD, clusters = PCON19CD)
+
+modelsummary(redist_changeInequality_areaRichPoor, 
+             stars = TRUE,
+             output = "markdown")
 
 redist_changeInequality_areaRichPoor_localFairShare <- lm_robust(data = df, 
            redistSelf ~ changeInequality + scale(areaRichPoor) + localFairShare + 
              p_edlevel + age + male + p_socgrade + 
              p_gross_household + leftRight,
-           fixed_effects = region, clusters = PCON19CD)
+           fixed_effects = PCON19CD, clusters = PCON19CD)
 
 
 
@@ -243,6 +255,15 @@ coef_map = c(
                "p_gross_household" = "Income", 
                "leftRight" = "Left-right placement"
              ))
+
+
+redist_changeInequality_areaRichPoor_lm <- lm(data = df, 
+           redistSelf ~ localFairShare*areaRichPoor_binary_rich + 
+             p_edlevel + age + male + p_socgrade + 
+             p_gross_household + leftRight + as.factor(region))
+
+plot((ggpredict(redist_changeInequality_areaRichPoor_lm,
+                terms = c("localFairShare", "areaRichPoor_binary_rich"))))
 
 
 ```

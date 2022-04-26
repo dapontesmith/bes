@@ -49,6 +49,7 @@ full$p_socgrade <- max(full$p_socgrade, na.rm = TRUE) - full$p_socgrade
 #switch scale of redistriubtion variable, so higher = more support 
 full$redistSelf <- 10 - full$redistSelf
 
+
 # make variable for perceived idfference between london and local fair shares
 full <- full %>% 
   mutate(london_local_fair_share = londonFairShare - localFairShare, 
@@ -62,7 +63,8 @@ full <- full %>%
     areaRichPoor <= median(areaRichPoor, na.rm = TRUE) ~ 0,
     areaRichPoor > median(areaRichPoor, na.rm = TRUE) ~ 1,
     TRUE ~ as.numeric(areaRichPoor)
-  ))
+  ), # make varaible for differece between perceived local and national unemployment 
+  local_national_unem_diff = nationalUnemployment_a_1 - localUnemployment_a_1)
 
 # handle some issues with geographic data
 full <- full %>% 
