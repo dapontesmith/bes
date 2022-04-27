@@ -17,7 +17,7 @@ full <- full %>%
          id, wt, turnoutUKGeneral:partyIdSqueeze,
          starts_with("econ"),
          leftRight, redistSelf, euID, immigSelf, ends_with("ness"),
-         starts_with("conLook"), starts_with("labLook"),
+         ends_with("AfterLocal"),
          ends_with("FairShare"), starts_with("map"), amenities,
          changeInequality,
          starts_with('area'), ends_with("a_1"),
@@ -48,6 +48,7 @@ full$male <- ifelse(full$gender == 2, 0, full$gender)
 full$p_socgrade <- max(full$p_socgrade, na.rm = TRUE) - full$p_socgrade
 #switch scale of redistriubtion variable, so higher = more support 
 full$redistSelf <- 10 - full$redistSelf
+
 
 
 # make variable for perceived idfference between london and local fair shares
@@ -96,9 +97,24 @@ full <- full %>%
     partyId == 10 ~ "None",
     partyId == 11 ~ "Change",
     partyId == 12 ~ "Brexit"
-  ))
+  ), # make categorical 2019 vote variable
+  vote_2019 = case_when(
+    p_past_vote_2019 == 0 ~ "did not vote", 
+    p_past_vote_2019 == 1 ~ "con",
+    p_past_vote_2019 == 2  ~ "lab",
+    p_past_vote_2019 == 3  ~ "ld",
+    p_past_vote_2019 == 4  ~ "snp",
+    p_past_vote_2019 == 5  ~ "pc",
+    p_past_vote_2019 == 6  ~ "ukip",
+    p_past_vote_2019 == 7  ~ "green",
+    p_past_vote_2019 == 8  ~ "bnp",
+    p_past_vote_2019 == 9  ~ "other",
+    p_past_vote_2019 == 11  ~ "changeuk",
+    p_past_vote_2019 == 12 ~ "brexit",
+    p_past_vote_2019 == 13  ~ "independent",
+    TRUE ~ as.character(p_past_vote_2019)
+  ) )
 
-# TO DO - CODE VARAIBLE FOR VOTE CHOICE AT LAST ELECTION 
 
 # merge parlitools 2019 data with the dataframe
 
@@ -135,6 +151,19 @@ unem <- unem %>%
 full <- full %>% 
   left_join(unem, 
             by = c("PCON19CD" = "ONSConstID")) 
+
+# make variable for the extent to which the respondent views the party they voted for as looking after local interests 
+lookafterlocal <- full %>% 
+  select(id, vote_2019, ends_with("AfterLocal")) %>% 
+  filter(vote_2019 %in% c("lab","con","snp")) %>% 
+  mutate(party_voted_lookAfterLocal = case_when(
+    vote_2019 == "con" ~ conLookAfterLocal, 
+    vote_2019 == "lab" ~ labLookAfterLocal,
+    vote_2019 == "snp" ~ snpLookAfterLocal
+  )) %>% 
+  select(id, party_voted_lookAfterLocal)
+
+full <- left_join(full, lookafterlocal, by = "id")
 
 
 
