@@ -1,0 +1,161 @@
+---
+title: "The Attitudinal Consequences of Place-Based Resentment"
+author: "Noah Daponte-Smith"
+date: "4/26/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+library(sf)
+library(tidyverse)
+library(stargazer)
+library(estimatr)
+library(modelsummary)
+library(ggeffects)
+library(patchwork)
+library(parlitools)
+library(DescTools)
+
+knitr::opts_chunk$set(echo = TRUE)
+ setwd("C:/Users/dapon/Dropbox/Harvard/dissertation/data")
+ df <- read_csv("bes/internet_panel/clean_data/bes_wave21_clean.csv") 
+ df$areaRichPoor_scale <- scale(df$areaRichPoor)[,1]
+ df$pcon <- df$PCON19CD
+```
+
+## Variables
+
+
+There is a burgeoning literature on the political consequences of place-based resentment. Building on the seminal work of Cramer (2016), scholars have explored the manner in which individuals' senses of identity may be constructed on geographic factors and in which those identities influence political behavior and attitudes. This literature traverses the advanced democracies, ranging from the United States (Munis 2020), Switzerland (Zollinger 2022), Canada (Borwein and Lucas, 2022), and elsewhere. 
+
+Place-based resentment is a multifaceted concept. For Cramer (2016), Munis (2020), and Jacques et al (2021), place-based resentment consists of "hostility towards geographically delimited out-groups perceived to receive benefits beyond those enjoyed by the place-based in-group" (Jacques et al 2021, p. 1). This definition - deliberately vague in its definition of "benefits" - suggests that one might measure place-based resentment, at the individual level, using a variety of measures. For instance, individuals' perceptions that their localities do not receive sufficient funding from the central government might constitute an economic dimension, while the belief that the area's interests are ignored in national policy discussions may constitute another dimension entirely. 
+
+To this effect, wave 21 of the British Election Study is an ideal dataset with which to explore the correlates and consequences of place-based resentment. The survey wave - administered to 30,000 Britons in early 2021 - contained a number of items measuring different facets of place-based resentment, which I detail in the remainder of this section. 
+
+As discussed above, one prominent theme in discussions of place-based resentment is \textit{economic}. In the accounts of Cramer and others, individuals' beliefs that the economies of their areas or regions are lagging behind the national one, and that their own local areas do not receive the funding they deserve, play an important role. For Cramer, the view of many rural Wisconsites' that an undue share of the state's funding goes to the big cities of Milwaukee and Madison is a primary driver of rural resentment. 
+
+The BES included two batteries of items that are well-suited to the measurement of place-based resentment. The first asked respondents to evaluate the change in the "economic situation" over the last 12 months of various groups of people: working- and middle-class people; ethnic minorities and white British people; and people resident in responents "local community," region, and in London. Responses ranged from 1 ("got a lot worse") to 5 ("got a lot better"). To measure the economic dimension of place-based resentment, for each respondent I create a variable that is the difference between their perceptions of London's economy and that of the local economy. Higher values indicates the respondent believes London's economy is outperforming that of their own community. This strategy mirrors the approach adopted by Green and Fieldhouse (2022) in recent research on the topic. 
+
+The second battery of items asked respondents about whether various geographic areas - the local community, the region, and London - receive their "fair share" of government spending. Responses ranged from 1 ("much less than its fair share") to 5 ("much more than its fair share"). Again, I create a measure that is the difference between respondent's perceptions that London receives a fair share and that their own community receives a fair share. Higher values indicate that the respondent believes government spending is unduly tilted in favor of London. The choice of London as a reference category for both of these measures has two benefits: first, it captures the divide between "superstar cities" and outlying areas that has become so relevant to political behavior in recent years (Rodriguez Pose 2018); second, it closely replicates Cramer's original formulation of place-based resentment as between a handful of large cities and their surrounding environs. 
+
+A third measure of place-based economic resentment derives from a question that asked respondents to rank their own area in the UK's overall wealth distribution. Responses of 1 and 100 indicate the respondent ranks their area as the poorest and richest respectively in the UK. Whereas questions on local economic performance measure \textit{changes} in the local economy, this item taps into respondents' perceptions of their areas' \textit{relative} standing. 
+
+
+
+
+
+## Relationships between variables 
+How do these variables relate to each other? Are individuals who perceive their area as relatively worse-off more inclined to bellieve their area does not receive its fair share of spending, for instance? 
+
+To answer these questions, I run four linear models, displayed in table 1. The models include demographic covariates, region fixed effects, and standard errors clustered at the constituency level. Across the four models, we see that - after controlling for respondent demographics - the different measures of place-based resentment all run together. Respondents who see their area as relatively worse-off believe their areas are not receiving their fair share. Perceptions of relative local poverty and that London's economy is outperforming the local one both correlate with views that London's share of governemnt spending is unduly high. Finally, perceptions of local poverty associate with perceptions that the local area is worse-represented in national politics (a finding that tracks that of McKay (2019), on an earlier wave of the BES). 
+
+Moreover, across all models, the substantive meaning of the coefficients on the demographic variables is fairly consistent: those with higher senses of place-based resentment tend to be white, older, of lower income and education, and more left-wing.  In many respects, this demographic profile resembles that of the "left-behind" or "parochial" voter developed in the literature. 
+
+```{r var_correlations, echo = FALSE, warning = FALSE, message = FALSE}
+localFairShare_areaRichPoor <- (lm_robust(data = df, 
+                   localFairShare ~ areaRichPoor_scale + p_edlevel + age + 
+                     male + p_socgrade + p_gross_household + leftRight+ is_white, 
+                   fixed_effects = region, clusters = pcon))
+
+london_localFairShare_areaRichPoor <- (lm_robust(data = df, 
+                   london_local_fair_share ~ areaRichPoor_scale + p_edlevel + age + 
+                     male + p_socgrade + p_gross_household + leftRight + is_white, 
+                   fixed_effects = region, clusters = pcon))
+
+mapRepresent_areaRichPoor <- lm_robust(
+  data = df, mapRepresent ~ areaRichPoor_scale + p_edlevel + age + 
+    male + p_socgrade + p_gross_household + leftRight + is_white, 
+  fixed_effects = region, clusters = pcon
+)
+
+london_local_econ_fairshare <- lm_robust(
+  data = df, london_local_fair_share ~ london_local_econ + p_edlevel + age + male + 
+    p_socgrade + p_gross_household + leftRight + is_white, 
+  fixed_effects = region, clusters = pcon
+)
+
+models <- list()
+models[["Local fair share"]] <- localFairShare_areaRichPoor
+models[["London-local fair share (1)"]] <- london_localFairShare_areaRichPoor
+models[["London-local fair share (2)"]] <- london_local_econ_fairshare
+models[["Local area represented"]] <- mapRepresent_areaRichPoor
+modelsummary(models,
+             stars  = TRUE,
+             output = "markdown",
+             coef_map = c(
+  "areaRichPoor_scale" = "Relative local wealth perception (scaled)",
+  "london_local_econ" = "London-local economic perception",
+  "p_edlevel" = "Education",
+  "p_socgrade" = "Social grade",
+  "p_gross_household" = "Household income",
+  "leftRight" = "Left-right self-placement",
+  "age" = "Age",
+  "male" = "Male",
+  "is_white" = "White"
+), 
+add_rows = bind_cols("Region fixed effects","Yes","Yes", "Yes","Yes"),
+             title = "Relationships between resentment variables")
+
+
+
+```
+## Dependent Variable: Why Redistribution?
+
+Throughout this study, I use redistribution preferences as my dependent variable. Whereas previous studies largely look at the relationship between peripherality and vote choice (Cramer 2016, Bischof et al 2022, Green and Fieldhouse 2022), I am interested in redistriubtion preferences for two reasons. First, redistribution - especially of a geographic sort - has attained high political salience in the UK in recent years, having been in various forms a centerpiece initiative of the Conservative governments that have ruled since 2010. Central to this agenda is the notion that places that are more peripheral also desire higher levels of redistribution. Using redistribution preferences as my dependent variable provides a test of this proposition. Second, looking at redistribtion rather than at vote choice may provide a more nuanced picture of individuals' attitudes towards politics. (I am aware I need a better justification here!)
+
+## Initial models 
+
+Table 1 looks at the relationship between redistribution attitudes - the key dependent variable - and five measures of place-based resentment: the perceived difference between the economies of London and the local area; the perception of the locality's share of centarl spending; the difference between the perceptions of central spending in London and in the local area; the respondent's perception of the local area's relative wealth; and beliefs about the extent to which local interests are represented in national politics. Each model controls for respondents' age, education, income, gender, social grade, and placement on the left-right scale. I include region fixed effects and cluster standard errors at the constituency level. Higher values of the dependent variable indicate preferences for higher levels of redistribution. 
+
+Across all five models, the measures of place-based resentment - whether economic or representational - correlate strongly with preferences for higher levels of general redistribution. In models 1 and 3, the positive coefficients indicate that respondents who respectively view London's economy as outperforming their own and receiving more than its fair share of government spending relative to their own are also more inclined towards redistribution. Similarly, the negative coefficients in models 2, 4, and 5 indicate that respondents who view their own localites as receiving their fair share of spending, as relatively more wealthy, and as adequately represented in national politics incline away from redistribution. 
+
+```{r redist_sources, echo = FALSE, warning = FALSE, message = FALSE}
+redist_london_local_econ_mod <- (lm_robust(data = df, 
+                   redistSelf ~ london_local_econ + p_edlevel + age + 
+                     male + p_socgrade + p_gross_household + leftRight, 
+                   fixed_effects = region, clusters = pcon))
+
+redist_localFairShare <- (lm_robust(data = df, 
+                   redistSelf ~ localFairShare + p_edlevel + age + 
+                     male + p_socgrade + p_gross_household + leftRight, 
+                   fixed_effects = region, clusters = pcon))
+
+redist_london_local_fairshare <- (lm_robust(data = df, 
+                   redistSelf ~ london_local_fair_share + p_edlevel + age + 
+                     male + p_socgrade + p_gross_household + leftRight, 
+                   fixed_effects = region, clusters = pcon))
+
+
+redist_areaRichPoor <- (lm_robust(data = df, 
+                   redistSelf ~ areaRichPoor_scale + p_edlevel + age + 
+                     male + p_socgrade + p_gross_household + leftRight, 
+                   fixed_effects = region, clusters = pcon))
+
+redist_mapRepresent <- (lm_robust(data = df, 
+                   redistSelf ~ mapRepresent + p_edlevel + age + 
+                     male + p_socgrade + p_gross_household + leftRight, 
+                   fixed_effects = region, clusters = pcon))
+
+modelsummary(list(redist_london_local_econ_mod,
+                  redist_localFairShare, 
+                  redist_london_local_fairshare,
+                  redist_areaRichPoor,
+                  redist_mapRepresent),
+                  stars = TRUE, 
+                  output = "markdown",
+             coef_map = c(
+               "london_local_econ" = "London-local econ. diff.",
+               "localFairShare" = "Local area gets fair share",
+               "london_local_fair_share" = "London - local fair share",
+               "areaRichPoor_scale" = "Relative local wealth perception",
+               "mapRepresent" = "Local area represented in national politics",
+               "leftRight" = "Left-right self-placement", 
+               "p_socgrade" = "Social grade",
+               "p_edlevel" = "Education", 
+               "age" = "Age",
+               "p_gross_household" = "Household income",
+               "male" = "Male"
+             ), add_rows = bind_cols("Region fixed effects","Yes","Yes", "Yes","Yes","Yes"),
+             title = "Place-based resentment and redistribution preferences")
+
+```
