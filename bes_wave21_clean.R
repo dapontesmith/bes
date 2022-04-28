@@ -16,13 +16,14 @@ full <- full %>%
   select(starts_with("p_"),
          id, wt, turnoutUKGeneral:partyIdSqueeze,
          starts_with("econ"),
-         leftRight, redistSelf, euID, immigSelf, ends_with("ness"),
+         leftRight, euID, starts_with("immig"), 
+         starts_with("redist"), ends_with("ness"),
          ends_with("AfterLocal"),
          ends_with("FairShare"), starts_with("map"), amenities,
          changeInequality,
          starts_with('area'), ends_with("a_1"),
          starts_with("subjClass"),
-         ends_with("Econ"),
+         ends_with("Econ"), changeEconomyLab, changeNHSLab, 
          starts_with("status"), starts_with("global"),
          country, age, gender, gor, pcon,oslauaEURef
          ) %>% 
@@ -152,6 +153,17 @@ full <- full %>%
   left_join(unem, 
             by = c("PCON19CD" = "ONSConstID")) 
 
+# make varaible for difference between party's and own immigration and redistribution views 
+full <- full %>% 
+  mutate(immig_self_con_diff = immigSelf - immigCon, 
+         immig_self_lab_diff = immigSelf - immigLab, 
+         immig_self_ld_diff = immigSelf - immigLD, 
+         immig_self_snp_diff = immigSelf - immigSNP,
+         redist_self_con_diff = redistSelf - redistCon, 
+         redist_self_lab_diff = redistSelf - redistLab, 
+         redist_self_ld_diff = redistSelf - redistLD, 
+         redist_self_snp_diff = redistSelf - redistSNP)
+
 # make variable for the extent to which the respondent views the party they voted for as looking after local interests 
 lookafterlocal <- full %>% 
   select(id, vote_2019, ends_with("AfterLocal")) %>% 
@@ -160,8 +172,19 @@ lookafterlocal <- full %>%
     vote_2019 == "con" ~ conLookAfterLocal, 
     vote_2019 == "lab" ~ labLookAfterLocal,
     vote_2019 == "snp" ~ snpLookAfterLocal
-  )) %>% 
-  select(id, party_voted_lookAfterLocal)
+  ),# also create variable for relative extent to which respondent views party voted for as looking after local intersts (
+  #i.e. to a greater degree than the other party does 
+  # this will be restricted to conservative and labour voters for data reasons 
+  party_voted_lookAfterLocal_relative = 
+    case_when(
+      vote_2019 == "con" ~ conLookAfterLocal - labLookAfterLocal, 
+      vote_2019 == "lab" ~ labLookAfterLocal - conLookAfterLocal,
+      TRUE ~ as.numeric(NA)
+    )) %>% 
+  select(id, starts_with("party"))
+
+
+
 
 full <- left_join(full, lookafterlocal, by = "id")
 

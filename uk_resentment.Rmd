@@ -15,6 +15,7 @@ library(ggeffects)
 library(patchwork)
 library(parlitools)
 library(DescTools)
+library(patchwork)
 
 knitr::opts_chunk$set(echo = TRUE)
  setwd("C:/Users/dapon/Dropbox/Harvard/dissertation/data")
@@ -51,6 +52,8 @@ To answer these questions, I run four linear models, displayed in table 1. The m
 
 Moreover, across all models, the substantive meaning of the coefficients on the demographic variables is fairly consistent: those with higher senses of place-based resentment tend to be white, older, of lower income and education, and more left-wing.  In many respects, this demographic profile resembles that of the "left-behind" or "parochial" voter developed in the literature. 
 
+(A note: That these variables appear to run together suggests that a more elegant way of aggregating them into a signle measure of place-based resentment may be appropriate A factor analysis of some kind, perhaps. Something to think about for the fufutre.)
+
 ```{r var_correlations, echo = FALSE, warning = FALSE, message = FALSE}
 localFairShare_areaRichPoor <- (lm_robust(data = df, 
                    localFairShare ~ areaRichPoor_scale + p_edlevel + age + 
@@ -83,8 +86,8 @@ modelsummary(models,
              stars  = TRUE,
              output = "markdown",
              coef_map = c(
-  "areaRichPoor_scale" = "Relative local wealth perception (scaled)",
-  "london_local_econ" = "London-local economic perception",
+  "areaRichPoor_scale" = "Rel. areal wealth percep.",
+  "london_local_econ" = "London-local econ percep",
   "p_edlevel" = "Education",
   "p_socgrade" = "Social grade",
   "p_gross_household" = "Household income",
@@ -105,9 +108,11 @@ Throughout this study, I use redistribution preferences as my dependent variable
 
 ## Initial models 
 
-Table 1 looks at the relationship between redistribution attitudes - the key dependent variable - and five measures of place-based resentment: the perceived difference between the economies of London and the local area; the perception of the locality's share of centarl spending; the difference between the perceptions of central spending in London and in the local area; the respondent's perception of the local area's relative wealth; and beliefs about the extent to which local interests are represented in national politics. Each model controls for respondents' age, education, income, gender, social grade, and placement on the left-right scale. I include region fixed effects and cluster standard errors at the constituency level. Higher values of the dependent variable indicate preferences for higher levels of redistribution. 
+Table 1 looks at the relationship between redistribution attitudes - the key dependent variable - and six measures of place-based resentment: the perceived difference between the economies of London and the local area; the perception of the locality's share of centarl spending; the difference between the perceptions of central spending in London and in the local area; the respondent's perception of the local area's relative wealth; beliefs about the extent to which local interests are represented in national politics; and perceptions of the quality of local services in the area. Each model controls for respondents' age, education, income, gender, social grade, and placement on the left-right scale. I include region fixed effects and cluster standard errors at the constituency level. Higher values of the dependent variable indicate preferences for higher levels of redistribution. 
 
 Across all five models, the measures of place-based resentment - whether economic or representational - correlate strongly with preferences for higher levels of general redistribution. In models 1 and 3, the positive coefficients indicate that respondents who respectively view London's economy as outperforming their own and receiving more than its fair share of government spending relative to their own are also more inclined towards redistribution. Similarly, the negative coefficients in models 2, 4, and 5 indicate that respondents who view their own localites as receiving their fair share of spending, as relatively more wealthy, and as adequately represented in national politics incline away from redistribution. 
+
+(A note: I am thinking through which of these measures best capture "place-based resentment," and which capture something quite related but distinct - the perception of local decline/left-behindness. Perhaps these are the same thing, but perhaps not. In any case, it seems clear that the two measures of perceived discrepanices between London and the locality \textit{do} indeed capture place-based resentment, while the four other measures are perhaps more muddled.)
 
 ```{r redist_sources, echo = FALSE, warning = FALSE, message = FALSE}
 redist_london_local_econ_mod <- (lm_robust(data = df, 
@@ -136,11 +141,17 @@ redist_mapRepresent <- (lm_robust(data = df,
                      male + p_socgrade + p_gross_household + leftRight, 
                    fixed_effects = region, clusters = pcon))
 
-modelsummary(list(redist_london_local_econ_mod,
-                  redist_localFairShare, 
-                  redist_london_local_fairshare,
-                  redist_areaRichPoor,
-                  redist_mapRepresent),
+redist_amenities <- (lm_robust(data = df, 
+                   redistSelf ~ amenities + p_edlevel + age + 
+                     male + p_socgrade + p_gross_household + leftRight, 
+                   fixed_effects = region, clusters = pcon))
+
+modelsummary(list("London vs. local econ" = redist_london_local_econ_mod,
+                  "Local fair share" = redist_localFairShare, 
+                  "London vs. local fair share" = redist_london_local_fairshare,
+                  "Relative areal wealth" = redist_areaRichPoor,
+                  "Represent" = redist_mapRepresent,
+                  "Amenities" = redist_amenities),
                   stars = TRUE, 
                   output = "markdown",
              coef_map = c(
@@ -149,13 +160,182 @@ modelsummary(list(redist_london_local_econ_mod,
                "london_local_fair_share" = "London - local fair share",
                "areaRichPoor_scale" = "Relative local wealth perception",
                "mapRepresent" = "Local area represented in national politics",
+               "amenities" = "Area well-served by local services",
                "leftRight" = "Left-right self-placement", 
                "p_socgrade" = "Social grade",
                "p_edlevel" = "Education", 
                "age" = "Age",
                "p_gross_household" = "Household income",
                "male" = "Male"
-             ), add_rows = bind_cols("Region fixed effects","Yes","Yes", "Yes","Yes","Yes"),
+             ), add_rows = bind_cols("Region fixed effects","Yes","Yes", "Yes","Yes","Yes", "Yes"),
              title = "Place-based resentment and redistribution preferences")
 
 ```
+
+
+
+
+Do people with higher senses of place-based resentment vote out of local concerns more often? To assess this, I use two questions that ask respondents about whether the Conservative and Labour parties respectively "look after people in your local area." Responses range from 1 (not at all closely) to 4 (very closely). Restricting the sample to Conservative or Labour voters in the 2019 election, I use these questions to create a measure of the extent to which the respondent views the party for which they voted as \textit{relatively} better on looking after the local area than is the other party. (For instance, for Conservative voters the measure is the difference between the values of the Conservative and Labour variables respectively, such that higher values indicate the respondent believes the Conservatives are much better than Labour at addressing local concerns). I then run two models that use this variable as the dependent variable and look at the interaction between 2019 vote c hoice and perceptions of relative areal wealth and the local area's share of government spending. 
+```{r local_voting, echo = FALSE, warning = FALSE, message = FALSE, figsize = 6.5}
+# mod <- lm_robust(data = df, 
+#   party_voted_lookAfterLocal_relative ~ london_local_econ + 
+#     p_edlevel + p_gross_household + p_socgrade + age + 
+#     gender + is_white, 
+#   fixed_effects = region, clusters = pcon)
+# 
+# modcon <- lm_robust(data = df %>% filter(vote_2019 == "con"), 
+#   party_voted_lookAfterLocal_relative ~ london_local_econ + 
+#     p_edlevel + p_gross_household + p_socgrade + age + 
+#     gender + is_white, 
+#   fixed_effects = region, clusters = pcon)
+# 
+# modlab <- lm_robust(data = df %>% filter(vote_2019 == "lab"), 
+#   party_voted_lookAfterLocal_relative ~ london_local_econ + 
+#     p_edlevel + p_gross_household + p_socgrade + age + 
+#     gender + is_white, 
+#   fixed_effects = region, clusters = pcon)
+
+# modelsummary(list("full sample" = mod,
+#                   "conservatives" = modcon,
+#                   "labour" = modlab),
+#              stars = TRUE,
+#              output = "markdown")
+
+
+mod2 <- lm(data = df %>% filter(vote_2019 %in% c("lab","con")), 
+  party_voted_lookAfterLocal_relative ~ areaRichPoor*vote_2019 + 
+    p_edlevel + p_gross_household + p_socgrade + age + 
+    gender + is_white + as.factor(region))
+
+mod3 <- lm(data = df %>% filter(vote_2019 %in% c("lab","con")), 
+  party_voted_lookAfterLocal_relative ~ localFairShare*vote_2019 + 
+    p_edlevel + p_gross_household + p_socgrade + age + 
+    gender + is_white + as.factor(region))
+
+p1 <- ggpredict(mod2, terms = c("areaRichPoor","vote_2019")) %>% 
+  plot() + 
+  labs(x = "Area poor-rich",
+       y = "Respondent's party relatively better at local interests", title = "") + 
+  theme(legend.position = "none")
+
+
+p2 <- ggpredict(mod3, terms = c("localFairShare","vote_2019")) %>% 
+  plot() + 
+  labs(x = "Local fair share",
+       y = "", title = "")
+
+
+p1 + p2 + 
+  plot_annotation(title = "Place-based resentment vs. party's relative effectiveness at local issues")
+
+```
+For Conservative voters, belieivng their area is richer is associated with thinking the Conservative party is better at taking care of local interests. This makes sense - Conservatives have been in power for a long time, so there's some incumbency effect here. For Labour voters, believing their area is richer is associated with thinking the Labour party is \textit{not} as good - or at least not relatively as good - as the Conservatives on dealing with local interests. This is a bit more perplexing to me. Perhaps it stems from the same incumbency logic: that the area has gotten richer under Conservative rule, so the Conservatives must be fairly good at managing local interests. This raises the question of why these people vote for Labour at all. The reasoning here may be that Labour voters simply do not weight local factors very highly in their calculus. 
+
+To test this notion - that local factors matter more to the vote choice of Conservative voters than to Labour ones - I run two models, subsetted to Labour and Conservative voters. The dependent variable is binary two-party vote choice at the 2019 election; the key independent variables are, respectively, the respondent's percepotions that the Labour and Conservative parties look after the local commmunity. If these perceptions matter more to Conservative voters than to Labour ones, we would expect the coefficient on the "Conservatives look after local community" variable to be larger (in magnitude, though differently signed) than on the "Labour looks after local community" variable. 
+
+Indeed, this is precisely what we see in the figure below. The Conservative coefficient is indeed about 50 percent larger in magnitude than is the Labour one, as the steeper slope in the right panel reflects. Across both parties, voters are more likely to vote for their party as they believe that party better attends to local interests. But the relationship is stronger for Conservaive voters. I could speculate on the reason for this - perhaps it results from a perception among Conservative voters that their local economies' interests are more particular, with their prosperity following less automatically from a general improvement in national prosperity. This is quite speculative. 
+```{r vote_models, echo = FALSE, warning = FALSE, message = FALSE, fig.width = 6.5}
+df_twoparty <- df %>% filter(vote_2019 %in% c("con","lab")) %>% 
+  mutate(voted_lab_twoparty = case_when(
+    vote_2019 == "con" ~ 0, 
+    vote_2019 == "lab" ~ 1
+  ))
+
+mod_lab <- lm(data = df_twoparty, 
+              voted_lab_twoparty ~  labLookAfterLocal + 
+    p_edlevel + p_socgrade + p_gross_household + 
+    age + male + is_white + as.factor(region))
+ 
+lab_coef <- mod_lab$coefficients %>% as_tibble() %>% slice(2)
+
+mod_con <- lm(data = df_twoparty,
+              voted_lab_twoparty ~ conLookAfterLocal + 
+                p_edlevel + p_socgrade + p_gross_household + 
+                age + male + is_white + as.factor(region))
+con_coef <- mod_con$coefficients %>% as_tibble() %>% slice(2)
+
+
+p1 <- plot(ggpredict(mod_lab, terms = "labLookAfterLocal")) + 
+  labs(x = "Labour looks after local",
+       y = "Voted Labour (two-party)", title = "")
+p2 <- plot(ggpredict(mod_con, terms = "conLookAfterLocal")) + 
+  labs(x = "Conservatives look after local", 
+       y = "", title = "")
+p1 + p2 + 
+  plot_annotation(
+    title = "Predicted value of voting Labour, by perceptions parties look after local area",
+    subtitle = "Labour coefficient = 0.17; Conservative coefficient = -0.253."
+  )
+
+
+```
+## Next steps
+\begin{enumerate}
+  \item Looking at movers is still on the agenda. I am facing some data difficulties here, especially with indivudals who appear somewhat spottily throughout the panel. I have made some assumptions some might regard as heroic to construct a complete dataset of movers, their old and new localities, and their preferences over time, but I have not convinced myself that this dataset is legitimate. I also need to talk to someone with more knowledge of causal inference than I on how to best set up the empirical analysis here. 
+  \item A survey on geographic redistribution more specifically would be enormously helpful here. It seems that the questions I have available here circle around that theme, but cannot - for reasons of data availability - arrive at it. I do not, however, have funding for such a survey. 
+  \item Expanding outside the UK. Another paper on pre-existing British survey data, I feel, makes me look a little one-note. (Of course, the Germans get away with observational causal inference on solely German data all the time.) I am accordingly interested in exploring these themes beyond Britain. I do not, however, know whether such data exists - perhaps in the Dutch LISS survey, or the Swiss Household Panel. 
+  
+
+\end{enumerate}
+
+## Appendix
+This table replicates table 2 above, but controls for the respondent's perception of how inequaltiy in Britain has changed. Responses ranged from 1 (getting much lower) to 5 (getting much worse). By controlling for perceptions of inequality - a primary determinant of preferences over redistribution - these models allow me to ascertain whether place-based resentment independently correlates with redistribution preferences, or whether my measures of place-based resentment are simply proxies for concerns over inequality more generally. With the exception of model 5, which looks at perceptions of local representation in national politics, all the measures remain significant. This indicates that place-based resentment is not solely a product of concerns over generalized inequality. 
+```{r change_inequality_control, echo = FALSE, warning = FALSE, message = FALSE}
+redist_london_local_econ_mod <- (lm_robust(data = df, 
+                   redistSelf ~ london_local_econ + p_edlevel + age + 
+                     male + p_socgrade + p_gross_household + leftRight + changeInequality, 
+                   fixed_effects = region, clusters = pcon))
+
+redist_localFairShare <- (lm_robust(data = df, 
+                   redistSelf ~ localFairShare + p_edlevel + age + 
+                     male + p_socgrade + p_gross_household + leftRight+ changeInequality, 
+                   fixed_effects = region, clusters = pcon))
+
+redist_london_local_fairshare <- (lm_robust(data = df, 
+                   redistSelf ~ london_local_fair_share + p_edlevel + age + 
+                     male + p_socgrade + p_gross_household + leftRight+ changeInequality, 
+                   fixed_effects = region, clusters = pcon))
+
+
+redist_areaRichPoor <- (lm_robust(data = df, 
+                   redistSelf ~ areaRichPoor_scale + p_edlevel + age + 
+                     male + p_socgrade + p_gross_household + leftRight+ changeInequality, 
+                   fixed_effects = region, clusters = pcon))
+
+redist_mapRepresent <- (lm_robust(data = df, 
+                   redistSelf ~ mapRepresent + p_edlevel + age + 
+                     male + p_socgrade + p_gross_household + leftRight+ changeInequality, 
+                   fixed_effects = region, clusters = pcon))
+
+redist_amenities <- (lm_robust(data = df, 
+                   redistSelf ~ amenities + p_edlevel + age + 
+                     male + p_socgrade + p_gross_household + leftRight+ changeInequality, 
+                   fixed_effects = region, clusters = pcon))
+
+modelsummary(list("London vs. local econ" = redist_london_local_econ_mod,
+                  "Local fair share" = redist_localFairShare, 
+                  "London vs. local fair share" = redist_london_local_fairshare,
+                  "Relative areal wealth" = redist_areaRichPoor,
+                  "Represent" = redist_mapRepresent,
+                  "Amenities" = redist_amenities),
+                  stars = TRUE, 
+                  output = "markdown",
+             coef_map = c(
+               "london_local_econ" = "London-local econ. diff.",
+               "localFairShare" = "Local area gets fair share",
+               "london_local_fair_share" = "London - local fair share",
+               "areaRichPoor_scale" = "Relative local wealth perception",
+               "mapRepresent" = "Local area represented in national politics",
+               "amenities" = "Area well-served by local services",
+               "changeInequality" = "Perceived change in inequality",
+               "leftRight" = "Left-right self-placement", 
+               "p_socgrade" = "Social grade",
+               "p_edlevel" = "Education", 
+               "age" = "Age",
+               "p_gross_household" = "Household income",
+               "male" = "Male"
+             ), add_rows = bind_cols("Region fixed effects","Yes","Yes", "Yes","Yes","Yes", "Yes"),
+             title = "Place-based resentment and redistribution preferences")
+
+```
+
