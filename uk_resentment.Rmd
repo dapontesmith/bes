@@ -3,6 +3,8 @@ title: "The Attitudinal Consequences of Place-Based Resentment"
 author: "Noah Daponte-Smith"
 date: "4/26/2022"
 output: pdf_document
+header-includes: 
+  - \usepackage{setspace}\doublespacing
 ---
 
 ```{r setup, include=FALSE}
@@ -23,6 +25,9 @@ knitr::opts_chunk$set(echo = TRUE)
  df$areaRichPoor_scale <- scale(df$areaRichPoor)[,1]
  df$pcon <- df$PCON19CD
 ```
+
+## Research questions
+This memo looks at a variety of questions broadly in the realm of redistribution, perceptions of local economies, and feelings of place-based resentment/left-behindness. As this is an exploratory exercise, I have not yet formed a precise research qustion. Here is a list of some. Is there an identifiable group of individuals that feels place-based resentment? Is place-based resentment primarily about the economy, or is it founded upon other, less tangible sources? How do place-based resentment and perceptions of the local, national, capital's economy correlate with preferences over redistribution? And do voters care about the local community when they vote? 
 
 ## Variables
 
@@ -54,6 +59,7 @@ Moreover, across all models, the substantive meaning of the coefficients on the 
 
 (A note: That these variables appear to run together suggests that a more elegant way of aggregating them into a signle measure of place-based resentment may be appropriate A factor analysis of some kind, perhaps. Something to think about for the fufutre.)
 
+\singlespace
 ```{r var_correlations, echo = FALSE, warning = FALSE, message = FALSE}
 localFairShare_areaRichPoor <- (lm_robust(data = df, 
                    localFairShare ~ areaRichPoor_scale + p_edlevel + age + 
@@ -86,8 +92,8 @@ modelsummary(models,
              stars  = TRUE,
              output = "markdown",
              coef_map = c(
-  "areaRichPoor_scale" = "Rel. areal wealth percep.",
-  "london_local_econ" = "London-local econ percep",
+  "areaRichPoor_scale" = "Rel. areal wealth",
+  "london_local_econ" = "London-local econ",
   "p_edlevel" = "Education",
   "p_socgrade" = "Social grade",
   "p_gross_household" = "Household income",
@@ -102,6 +108,8 @@ add_rows = bind_cols("Region fixed effects","Yes","Yes", "Yes","Yes"),
 
 
 ```
+\doublespace
+
 ## Dependent Variable: Why Redistribution?
 
 Throughout this study, I use redistribution preferences as my dependent variable. Whereas previous studies largely look at the relationship between peripherality and vote choice (Cramer 2016, Bischof et al 2022, Green and Fieldhouse 2022), I am interested in redistriubtion preferences for two reasons. First, redistribution - especially of a geographic sort - has attained high political salience in the UK in recent years, having been in various forms a centerpiece initiative of the Conservative governments that have ruled since 2010. Central to this agenda is the notion that places that are more peripheral also desire higher levels of redistribution. Using redistribution preferences as my dependent variable provides a test of this proposition. Second, looking at redistribtion rather than at vote choice may provide a more nuanced picture of individuals' attitudes towards politics. (I am aware I need a better justification here!)
@@ -113,6 +121,8 @@ Table 1 looks at the relationship between redistribution attitudes - the key dep
 Across all five models, the measures of place-based resentment - whether economic or representational - correlate strongly with preferences for higher levels of general redistribution. In models 1 and 3, the positive coefficients indicate that respondents who respectively view London's economy as outperforming their own and receiving more than its fair share of government spending relative to their own are also more inclined towards redistribution. Similarly, the negative coefficients in models 2, 4, and 5 indicate that respondents who view their own localites as receiving their fair share of spending, as relatively more wealthy, and as adequately represented in national politics incline away from redistribution. 
 
 (A note: I am thinking through which of these measures best capture "place-based resentment," and which capture something quite related but distinct - the perception of local decline/left-behindness. Perhaps these are the same thing, but perhaps not. In any case, it seems clear that the two measures of perceived discrepanices between London and the locality \textit{do} indeed capture place-based resentment, while the four other measures are perhaps more muddled.)
+
+\singlespace
 
 ```{r redist_sources, echo = FALSE, warning = FALSE, message = FALSE}
 redist_london_local_econ_mod <- (lm_robust(data = df, 
@@ -157,11 +167,11 @@ modelsummary(list("London vs. local econ" = redist_london_local_econ_mod,
              coef_map = c(
                "london_local_econ" = "London-local econ. diff.",
                "localFairShare" = "Local area gets fair share",
-               "london_local_fair_share" = "London - local fair share",
+               "london_local_fair_share" = "London-local share gap",
                "areaRichPoor_scale" = "Relative local wealth perception",
                "mapRepresent" = "Local area represented in national politics",
-               "amenities" = "Area well-served by local services",
-               "leftRight" = "Left-right self-placement", 
+               "amenities" = "Quality of local services",
+               "leftRight" = "Left-right", 
                "p_socgrade" = "Social grade",
                "p_edlevel" = "Education", 
                "age" = "Age",
@@ -172,10 +182,11 @@ modelsummary(list("London vs. local econ" = redist_london_local_econ_mod,
 
 ```
 
+\doublespace
 
 
 
-Do people with higher senses of place-based resentment vote out of local concerns more often? To assess this, I use two questions that ask respondents about whether the Conservative and Labour parties respectively "look after people in your local area." Responses range from 1 (not at all closely) to 4 (very closely). Restricting the sample to Conservative or Labour voters in the 2019 election, I use these questions to create a measure of the extent to which the respondent views the party for which they voted as \textit{relatively} better on looking after the local area than is the other party. (For instance, for Conservative voters the measure is the difference between the values of the Conservative and Labour variables respectively, such that higher values indicate the respondent believes the Conservatives are much better than Labour at addressing local concerns). I then run two models that use this variable as the dependent variable and look at the interaction between 2019 vote c hoice and perceptions of relative areal wealth and the local area's share of government spending. 
+Do people with higher senses of place-based resentment vote out of local concerns more often? To assess this, I use two questions that ask respondents about whether the Conservative and Labour parties respectively "look after people in your local area." Responses range from 1 (not at all closely) to 4 (very closely). Restricting the sample to Conservative or Labour voters in the 2019 election, I use these questions to create a measure of the extent to which the respondent views the party for which they voted as \textit{relatively} better on looking after the local area than is the other party. (For instance, for Conservative voters the measure is the difference between the values of the Conservative and Labour variables respectively, such that higher values indicate the respondent believes the Conservatives are much better than Labour at addressing local concerns). I then run two models that use this variable as the dependent variable and look at the interaction between 2019 vote choice and perceptions of relative areal wealth and the local area's share of government spending. 
 ```{r local_voting, echo = FALSE, warning = FALSE, message = FALSE, figsize = 6.5}
 # mod <- lm_robust(data = df, 
 #   party_voted_lookAfterLocal_relative ~ london_local_econ + 
@@ -201,32 +212,32 @@ Do people with higher senses of place-based resentment vote out of local concern
 #              stars = TRUE,
 #              output = "markdown")
 
-
-mod2 <- lm(data = df %>% filter(vote_2019 %in% c("lab","con")), 
-  party_voted_lookAfterLocal_relative ~ areaRichPoor*vote_2019 + 
-    p_edlevel + p_gross_household + p_socgrade + age + 
-    gender + is_white + as.factor(region))
-
-mod3 <- lm(data = df %>% filter(vote_2019 %in% c("lab","con")), 
-  party_voted_lookAfterLocal_relative ~ localFairShare*vote_2019 + 
-    p_edlevel + p_gross_household + p_socgrade + age + 
-    gender + is_white + as.factor(region))
-
-p1 <- ggpredict(mod2, terms = c("areaRichPoor","vote_2019")) %>% 
-  plot() + 
-  labs(x = "Area poor-rich",
-       y = "Respondent's party relatively better at local interests", title = "") + 
-  theme(legend.position = "none")
-
-
-p2 <- ggpredict(mod3, terms = c("localFairShare","vote_2019")) %>% 
-  plot() + 
-  labs(x = "Local fair share",
-       y = "", title = "")
-
-
-p1 + p2 + 
-  plot_annotation(title = "Place-based resentment vs. party's relative effectiveness at local issues")
+# 
+# mod2 <- lm(data = df %>% filter(vote_2019 %in% c("lab","con")), 
+#   party_voted_lookAfterLocal_relative ~ areaRichPoor*vote_2019 + 
+#     p_edlevel + p_gross_household + p_socgrade + age + 
+#     gender + is_white + as.factor(region))
+# 
+# mod3 <- lm(data = df %>% filter(vote_2019 %in% c("lab","con")), 
+#   party_voted_lookAfterLocal_relative ~ localFairShare*vote_2019 + 
+#     p_edlevel + p_gross_household + p_socgrade + age + 
+#     gender + is_white + as.factor(region))
+# 
+# p1 <- ggpredict(mod2, terms = c("areaRichPoor","vote_2019")) %>% 
+#   plot() + 
+#   labs(x = "Area poor-rich",
+#        y = "Respondent's party relatively better at local interests", title = "") + 
+#   theme(legend.position = "none")
+# 
+# 
+# p2 <- ggpredict(mod3, terms = c("localFairShare","vote_2019")) %>% 
+#   plot() + 
+#   labs(x = "Local fair share",
+#        y = "", title = "")
+# 
+# 
+# p1 + p2 + 
+#   plot_annotation(title = "Place-based resentment vs. party's relative effectiveness at local issues")
 
 ```
 For Conservative voters, belieivng their area is richer is associated with thinking the Conservative party is better at taking care of local interests. This makes sense - Conservatives have been in power for a long time, so there's some incumbency effect here. For Labour voters, believing their area is richer is associated with thinking the Labour party is \textit{not} as good - or at least not relatively as good - as the Conservatives on dealing with local interests. This is a bit more perplexing to me. Perhaps it stems from the same incumbency logic: that the area has gotten richer under Conservative rule, so the Conservatives must be fairly good at managing local interests. This raises the question of why these people vote for Labour at all. The reasoning here may be that Labour voters simply do not weight local factors very highly in their calculus. 
@@ -255,10 +266,12 @@ mod_con <- lm(data = df_twoparty,
 con_coef <- mod_con$coefficients %>% as_tibble() %>% slice(2)
 
 
-p1 <- plot(ggpredict(mod_lab, terms = "labLookAfterLocal")) + 
+p1 <- plot(ggpredict(mod_lab, terms = "labLookAfterLocal"),
+           colors = "bw") + 
   labs(x = "Labour looks after local",
        y = "Voted Labour (two-party)", title = "")
-p2 <- plot(ggpredict(mod_con, terms = "conLookAfterLocal")) + 
+p2 <- plot(ggpredict(mod_con, terms = "conLookAfterLocal"),
+           colors = "bw") + 
   labs(x = "Conservatives look after local", 
        y = "", title = "")
 p1 + p2 + 
@@ -269,7 +282,35 @@ p1 + p2 +
 
 
 ```
+
+I also look at whether individuals who feel a stronger sense of place-based resentment are more likely to vote out of concern for local interests. To do so, I look at the interaction between perceptions that the Labour party looks after local interests and perceptions that London's share of central spending exceeds the locality's own. (This latter variable is a binarized version the ordinal measure used in models above). The dependent variable is a binary indicator for Labour vote choice; the sample is restricted to Labour and Conservative voters. The model includes standard demographic controls and regional fixed effects. I find that, for voters who see a larger gap between London's share of central spending and their own, perceptions that the Labour party looks after local interests are more important in increasing the probability the respondent will voter for Labour over the Conservatives. As above, this indicates that parties' records on local issues is more salient to voters who feel a stronger sense of place-based resentment. 
+
+```{r lookAfterLocal_resentment, echo = FALSE, warning = FALSE, message = FALSE, fig.width = 6.5}
+
+df_twoparty <- df %>% filter(vote_2019 %in% c("con","lab")) %>% 
+    mutate(voted_lab_twoparty = case_when(
+    vote_2019 == "con" ~ 0, 
+    vote_2019 == "lab" ~ 1
+  ))
+
+mod_lab <- lm(data = df_twoparty, 
+              voted_lab_twoparty ~  labLookAfterLocal*london_fairshare_exceeds_local + 
+    p_edlevel + p_socgrade + p_gross_household + 
+    age + male + is_white + as.factor(region))
+
+
+plot(ggpredict(mod_lab, terms = c("labLookAfterLocal","london_fairshare_exceeds_local")),
+     colors = "bw") + 
+  labs(title = "Place-based resentment, local interests, and Labour vote",
+       x = "Labour looks after local community",
+       y = "Voted Labour (two-party)") + 
+  guides(linetype = guide_legend(title = str_wrap("London share exceeds local", 9)))
+
+```
+
+
 ## Next steps
+
 \begin{enumerate}
   \item Looking at movers is still on the agenda. I am facing some data difficulties here, especially with indivudals who appear somewhat spottily throughout the panel. I have made some assumptions some might regard as heroic to construct a complete dataset of movers, their old and new localities, and their preferences over time, but I have not convinced myself that this dataset is legitimate. I also need to talk to someone with more knowledge of causal inference than I on how to best set up the empirical analysis here. 
   \item A survey on geographic redistribution more specifically would be enormously helpful here. It seems that the questions I have available here circle around that theme, but cannot - for reasons of data availability - arrive at it. I do not, however, have funding for such a survey. 
@@ -279,7 +320,9 @@ p1 + p2 +
 \end{enumerate}
 
 ## Appendix
-This table replicates table 2 above, but controls for the respondent's perception of how inequaltiy in Britain has changed. Responses ranged from 1 (getting much lower) to 5 (getting much worse). By controlling for perceptions of inequality - a primary determinant of preferences over redistribution - these models allow me to ascertain whether place-based resentment independently correlates with redistribution preferences, or whether my measures of place-based resentment are simply proxies for concerns over inequality more generally. With the exception of model 5, which looks at perceptions of local representation in national politics, all the measures remain significant. This indicates that place-based resentment is not solely a product of concerns over generalized inequality. 
+This table replicates table 2 above, but controls for the respondent's perception of how ineqaulity in Britain has changed. Responses ranged from 1 (getting much lower) to 5 (getting much worse). By controlling for perceptions of inequality - a primary determinant of preferences over redistribution - these models allow me to ascertain whether place-based resentment independently correlates with redistribution preferences, or whether my measures of place-based resentment are simply proxies for concerns over inequality more generally. With the exception of model 5, which looks at perceptions of local representation in national politics, all the measures remain significant. This indicates that place-based resentment is not solely a product of concerns over generalized inequality. 
+
+\singlespace
 ```{r change_inequality_control, echo = FALSE, warning = FALSE, message = FALSE}
 redist_london_local_econ_mod <- (lm_robust(data = df, 
                    redistSelf ~ london_local_econ + p_edlevel + age + 

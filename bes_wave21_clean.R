@@ -68,6 +68,28 @@ full <- full %>%
   ), # make varaible for differece between perceived local and national unemployment 
   local_national_unem_diff = nationalUnemployment_a_1 - localUnemployment_a_1)
 
+# make a bunch of binary variables of fairshare and econ variables 
+full <- full %>% 
+  mutate(london_fairshare_exceeds_local = 
+  case_when(
+    londonFairShare > localFairShare ~ 1, 
+    localFairShare >= londonFairShare ~ 0,
+    TRUE ~ as.numeric(NA)
+  ), london_econ_exceeds_local = 
+  case_when(
+    londonEcon > localEcon ~ 1, 
+    localEcon >= londonEcon ~ 0, 
+    TRUE ~ as.numeric(NA)
+  ), localFairShare_binary = 
+  case_when(localFairShare > 2 ~ 1, 
+            localFairShare < 3 ~ 0,
+            TRUE ~ as.numeric(NA)),
+londonFairShare_binary = case_when(
+  londonFairShare > 2 ~ 1, 
+  londonFairShare < 3 ~ 0, 
+  TRUE ~ as.numeric(NA)
+))
+
 # handle some issues with geographic data
 full <- full %>% 
  # mutate(lad_name = labelled::to_factor(oslaua),
