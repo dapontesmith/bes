@@ -187,18 +187,18 @@ pcon_data <- left_join(df %>%
 moddat <- pcon_data %>% 
   # fill NAs upward
   # impute geographies in missing survey waves 
-  fill(redistSelf, .direction = "up") %>% 
-  fill(p_gross_household, .direction = "up") %>% 
-  fill(p_edlevel, .direction = "up") %>% 
-  fill(p_socgrade, .direction = "up") %>% 
-  fill(leftRight, .direction = "up") %>% 
-  fill(median_total_income, .direction = "up") %>%
-  fill(UnempConstRate, .direction = "up") %>% 
-  fill(median_total_income_scale, .direction = "up") %>% 
-  fill(UnempConstRate_scale, .direction = "up") %>% 
-  fill(pcon_nat_rate_diff, .direction = "up") %>% 
-  fill(pcon_nat_rate_diff_scale, .direction = "up") %>% 
-  # make cahnge variables
+  # fill(redistSelf, .direction = "up") %>% 
+  # fill(p_gross_household, .direction = "up") %>% 
+  # fill(p_edlevel, .direction = "up") %>% 
+  # fill(p_socgrade, .direction = "up") %>% 
+  # fill(leftRight, .direction = "up") %>% 
+  # fill(median_total_income, .direction = "up") %>%
+  # fill(UnempConstRate, .direction = "up") %>% 
+  # fill(median_total_income_scale, .direction = "up") %>% 
+  # fill(UnempConstRate_scale, .direction = "up") %>% 
+  # fill(pcon_nat_rate_diff, .direction = "up") %>% 
+  # fill(pcon_nat_rate_diff_scale, .direction = "up") %>% 
+  # # make cahnge variables
   mutate(median_total_income_change = median_total_income - lag(median_total_income),
          UnempConstRate_change = UnempConstRate - lag(UnempConstRate),
          UnempConstRate_scale_change = UnempConstRate_scale - lag(UnempConstRate_scale),
@@ -206,15 +206,34 @@ moddat <- pcon_data %>%
          pcon_nat_rate_diff_scale_change = pcon_nat_rate_diff_scale - lag(pcon_nat_rate_diff_scale),
          redistSelf_change = redistSelf - lag(redistSelf)) 
  
+
+# run initial model of changes in redistribution preference vs. change in relative income of pcon
 mod <- felm(data = moddat, 
-     redistSelf_change ~ p_gross_household + male + p_edlevel + p_socgrade + 
-       age + leftRight + 
-       pcon_nat_rate_diff_scale_change | id | 0 | id )
+     redistSelf_change ~ pcon_nat_rate_diff_scale_change
+     # fixed effects by individual and wave
+        | id + wave | 0 | id)
 
 
-modelplot(mod)
-modelsummary(mod, stars = TRUE)
+nrow(pcon_data %>% 
+       filter(!is.na(redistSelf) & !is.na(pcon_nat_rate_diff_scale))) / 
+  nrow(pcon_data)
+
+
+modelsummary(mod, stars = TRUE,
+             coef_map = c(
+               "pcon_nat_rate_diff_scale_change" = "Unemployment rate difference between pcon and national",
+               "p_gross_household" = "Household income",
+               "p_edlevel" = "Education",
+               "p_socgrade" = 'Social grade',
+               "age" = "Age",
+               "leftRight" = "Left-right self-placement"), 
+               add_rows = bind_cols("Fixed effects","respondent + pcon",),
+             title = "Relative local income and redistribution attitudes")
 
 ggplot(moddat) + 
   geom_histogram(aes(x = pcon_nat_rate_diff), 
+                 bins = 100)
+
+moddat %>% na.omit %>% ggplot() + 
+  geom_histogram(aes(x = redistSelf_change), 
                  bins = 100)

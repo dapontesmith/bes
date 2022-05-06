@@ -20,7 +20,7 @@ full <- full %>%
          starts_with("redist"), ends_with("ness"),
          ends_with("AfterLocal"),
          ends_with("FairShare"), starts_with("map"), amenities,
-         changeInequality,
+         changeInequality, starts_with("efficacy"), satDemUK, 
          starts_with('area'), ends_with("a_1"),
          starts_with("subjClass"),
          ends_with("Econ"), changeEconomyLab, changeNHSLab, 
@@ -49,6 +49,11 @@ full$male <- ifelse(full$gender == 2, 0, full$gender)
 full$p_socgrade <- max(full$p_socgrade, na.rm = TRUE) - full$p_socgrade
 #switch scale of redistriubtion variable, so higher = more support 
 full$redistSelf <- 10 - full$redistSelf
+
+# create efficacy index - higher values indicate higher alienation
+full <- full %>% 
+  mutate(efficacy_index = 
+           efficacyNotUnderstand + efficacyNotUnderstand + efficacyNoMatter)
 
 
 

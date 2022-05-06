@@ -391,4 +391,25 @@ modelsummary(list(redist_london_local_econ_mod,
 ```
 
 \newpage
+
+
+```{r satdem_mods, echo = FALSE, warning = FALSE, message = FALSE}
+
+
+redist_satdem <- (lm_robust(data = df,
+                   satDemUK ~ areaRichPoor + p_edlevel + age + 
+                     male + p_socgrade + p_gross_household + leftRight+ changeInequality, 
+                   fixed_effects = region, clusters = pcon))
+
+redist_efficacy <- (lm_robust(data = df, 
+                   efficacy_index ~ areaRichPoor + p_edlevel + age + 
+                     male + p_socgrade + p_gross_household + leftRight+ changeInequality, 
+                   fixed_effects = region, clusters = pcon))
+
+modelsummary(list(redist_satdem, redist_efficacy),
+             stars = TRUE,
+             output = "markdown")
+
+
+```
 ## Works cited 
