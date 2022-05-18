@@ -129,15 +129,15 @@ gender <- gender %>%
 
 
 # read in the pcon data 
-pcon_income <- read_csv("data/uk_geography/pcon_data/pcon_income_data_2018.csv") 
-pcon_income <- pcon_income %>% 
-  dplyr::select(PCON19CD, PCON19NM,
-                median_total_income) %>% 
-  # make the variable numeric
-  mutate(median_total_income = as.numeric(str_remove(median_total_income, ",")),# , 
-         # make scaled version of the variable 
-         median_total_income_scale = scale(median_total_income)[,1])
-
+# pcon_income <- read_csv("data/uk_geography/pcon_data/pcon_income_data_2018.csv") 
+# pcon_income <- pcon_income %>% 
+#   dplyr::select(PCON19CD, PCON19NM,
+#                 median_total_income) %>% 
+#   # make the variable numeric
+#   mutate(median_total_income = as.numeric(str_remove(median_total_income, ",")),# , 
+#          # make scaled version of the variable 
+#          median_total_income_scale = scale(median_total_income)[,1])
+# 
 
 
 # join long versions of pcon data - get both codes and names 
@@ -184,6 +184,22 @@ pcon_data <- left_join(df %>%
             by = c("area_name" = "ConstituencyName", 
                    "date_full" = "DateOfDataset"))
 
+# read in median annual pay data 
+pay <- read_csv("data/uk_geography/pcon_data/median_incomes/annual_pay_2015_2021_clean.csv") %>% 
+  dplyr::select(-`...1`)
+
+# create year varialbe in pcon_data, then merge in median pay 
+pcon_data$year <- str_split(pcon_data$date_full, "/",
+                            simplify = TRUE)[,3] 
+pcon_data <- pcon_data %>% 
+  mutate(year = as.numeric(year)) %>% 
+  left_join(pay, by = c(
+    "year",
+    "area_name" = "area",
+    "PCON19CD" = "code"
+  ))
+
+
 moddat <- pcon_data %>% 
   # fill NAs upward
   # impute geographies in missing survey waves 
@@ -209,9 +225,12 @@ moddat <- pcon_data %>%
 
 # run initial model of changes in redistribution preference vs. change in relative income of pcon
 mod <- felm(data = moddat, 
-     redistSelf_change ~ pcon_nat_rate_diff_scale_change
+     redistSelf ~ median_scale
      # fixed effects by individual and wave
         | id + wave | 0 | id)
+
+
+summary(mod)
 
 
 nrow(pcon_data %>% 
