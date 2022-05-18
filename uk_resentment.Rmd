@@ -186,6 +186,7 @@ modelsummary(list(redist_london_local_econ_mod,
 
 \doublespace
 
+
 ## Place-based resentment and motivations for vote choice
 
 Do people with higher senses of place-based resentment vote out of local concerns more often? To assess this, I use two questions that ask respondents about whether the Conservative and Labour parties respectively "look after people in your local area." Responses range from 1 (not at all closely) to 4 (very closely). Restricting the sample to Conservative or Labour voters in the 2019 election, I use these questions to create a measure of the extent to which the respondent views the party for which they voted as \textit{relatively} better on looking after the local area than is the other party. (For instance, for Conservative voters the measure is the difference between the values of the Conservative and Labour variables respectively, such that higher values indicate the respondent believes the Conservatives are much better than Labour at addressing local concerns). I then run two models that use this variable as the dependent variable and look at the interaction between 2019 vote choice and perceptions of relative areal wealth and the local area's share of government spending. 
@@ -316,8 +317,8 @@ plot(ggpredict(mod_lab, terms = c("labLookAfterLocal","london_fairshare_exceeds_
 ## Next steps
 
 \begin{enumerate}
-  \item Looking at movers is still on the agenda. I am facing some data difficulties here, especially with indivudals who appear somewhat spottily throughout the panel. I have made some assumptions some might regard as heroic to construct a complete dataset of movers, their old and new localities, and their preferences over time, but I have not convinced myself that this dataset is legitimate. I also need to talk to someone with more knowledge of causal inference than I on how to best set up the empirical analysis here. (ARJUN - THIS IS WHERE YOU COME IN.)
-  \item A survey on geographic redistribution more specifically would be enormously helpful here. It seems that the questions I have available here circle around that theme, but cannot - for reasons of data availability - arrive at it. I do not, however, have funding for such a survey. 
+  \item Looking at movers is still on the agenda. I am facing some data difficulties here, especially with indivudals who appear somewhat spottily throughout the panel. I have made some assumptions some might regard as heroic to construct a complete dataset of movers, their old and new localities, and their preferences over time, but I have not convinced myself that this dataset is legitimate. I also need to talk to someone with more knowledge of causal inference than I on how to best set up the empirical analysis here. 
+  \item A survey on geographic redistribution more specifically would be enormously helpful here. It seems that the questions I have available here circle around that theme, but cannot - for reasons of data availability - arrive at it. I envision such a survey as asking respondents directly about their preferences for redistribution to or from certain geographic areas, along with various measures of place-based resentment. 
   \item Expanding outside the UK. Another paper on pre-existing British survey data, I feel, makes me look a little one-note. (Of course, the Germans get away with observational causal inference on solely German data all the time.) I am accordingly interested in exploring these themes beyond Britain. I do not, however, know whether such data exists - perhaps in the Dutch LISS survey, or the Swiss Household Panel. 
   
 
@@ -392,24 +393,49 @@ modelsummary(list(redist_london_local_econ_mod,
 
 \newpage
 
+Finally, I include a pair of analyses that look at the relationship between perceived areal poverty and two outcome varaibles: satisfaction with democracy and an additive index of the perceived efficacy of the political system. Both of these serve as plausible measures of alienation from politics. On both variables, higher values indicate the respondent is \textit{less} alienated. I use the same modeling techniques as above: region fixed effects with constituency-clustered standard errors. The positve and significant coefficients on the areal wealth variable in both models indicate the expected relationship, though the magnitudes of the coefficients are fairly small. 
 
 ```{r satdem_mods, echo = FALSE, warning = FALSE, message = FALSE}
 
 
 redist_satdem <- (lm_robust(data = df,
-                   satDemUK ~ areaRichPoor + p_edlevel + age + 
+                   satDemUK ~ areaRichPoor_scale + p_edlevel + age + 
                      male + p_socgrade + p_gross_household + leftRight+ changeInequality, 
                    fixed_effects = region, clusters = pcon))
 
-redist_efficacy <- (lm_robust(data = df, 
-                   efficacy_index ~ areaRichPoor + p_edlevel + age + 
+redist_efficacy <- (lm_robust(data = df %>% mutate(efficacy_index = efficacy_index *-1), 
+                   efficacy_index ~ areaRichPoor_scale + p_edlevel + age + 
                      male + p_socgrade + p_gross_household + leftRight+ changeInequality, 
                    fixed_effects = region, clusters = pcon))
 
 modelsummary(list(redist_satdem, redist_efficacy),
              stars = TRUE,
-             output = "markdown")
+             output = "markdown",
+             coef_map = c(
+               "areaRichPoor_scale" = "Relative areal poverty (scaled)",
+               "amenities" = "Area well-served by local services",
+               "changeInequality" = "Perceived change in inequality",
+               "leftRight" = "Left-right self-placement", 
+               "p_socgrade" = "Social grade",
+               "p_edlevel" = "Education", 
+               "age" = "Age",
+               "p_gross_household" = "Household income",
+               "male" = "Male"
+             ))
 
 
 ```
+
+
+
+
+## Exploring other forms of resentment
+
+
+
+
 ## Works cited 
+
+
+
+
