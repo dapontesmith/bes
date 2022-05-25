@@ -6,6 +6,7 @@ library(parallel)
 library(foreach)
 library(doParallel)
 library(tidyverse)
+library(lfe)
 library(haven)
 
 
@@ -179,6 +180,14 @@ out <- pcon_data %>%
   # impute geographies in missing survey waves 
   fill(area_code, .direction = "up") %>% 
   fill(area_name, .direction = "up") %>% 
+  mutate(previous_code = lag(area_code),
+         previous_name = lag(area_name),
+         wave_moved = ifelse(area_code != previous_code & 
+                               !is.na(previous_code), 1, 0)) %>% 
+  ungroup() %>% 
+  group_by(id) %>% 
+  mutate(is_mover = ifelse(sum(wave_moved, na.rm = TRUE) != 0, 1, 0)) %>% 
+  filter(is_mover == 1) %>% 
   # join in the dates of each survey using starttimes df 
   left_join(., starttimes %>% 
               dplyr::select(id, wave, date_full), 
@@ -191,19 +200,17 @@ out <- pcon_data %>%
                    "date_full" = "DateOfDataset")) %>% 
   #fill(redistSelf, .direction = "up") %>% 
   #fill(p_gross_household, .direction = "up") %>% 
-  mutate(previous_code = lag(area_code),
-         previous_name = lag(area_name),
-         # find the redist value in previous wave 
-         previous_redist = lag(redistSelf),
-         previous_income = lag(p_gross_household),
-         previous_edlevel = lag(p_edlevel), 
-         previous_socgrade = lag(p_socgrade),
-         previous_leftRight = lag(leftRight),
-         previous_age = lag(age),
-         previous_UnempConstRate = lag(UnempConstRate),
-         previous_UnempConstRate_scale = lag(UnempConstRate_scale),
-         previous_pcon_nat_rate_diff = lag(pcon_nat_rate_diff),
-         previous_pcon_nat_rate_diff_scale = lag(pcon_nat_rate_diff_scale)) %>% 
+  # mutate(# find the redist value in previous wave 
+  #        previous_redist = lag(redistSelf),
+  #        previous_income = lag(p_gross_household),
+  #        previous_edlevel = lag(p_edlevel), 
+  #        previous_socgrade = lag(p_socgrade),
+  #        previous_leftRight = lag(leftRight),
+  #        previous_age = lag(age),
+  #        previous_UnempConstRate = lag(UnempConstRate),
+  #        previous_UnempConstRate_scale = lag(UnempConstRate_scale),
+  #        previous_pcon_nat_rate_diff = lag(pcon_nat_rate_diff),
+  #        previous_pcon_nat_rate_diff_scale = lag(pcon_nat_rate_diff_scale)) %>% 
   # put variables in nice order for viewing comparison 
   # dplyr::select(id, wave, area_code, previous_code, 
   #        area_name, previous_name, 
@@ -215,39 +222,38 @@ out <- pcon_data %>%
   #        age, previous_age,
   #        UnempConstRate, previous_UnempConstRate
   #        male) %>% 
-  # get wave moved 
-  mutate(wave_moved = ifelse(area_code != previous_code & 
-                               !is.na(previous_code), 1, 0)) %>% 
-  # get only the moving wave 
-  filter(wave_moved == 1 & 
-           # filter out people not in a constituency 
-           area_name != "NOT in a 2010 Parliamentary Constituency") %>% 
+  # get wave moved
   # get change in redistribution and income variables 
-  mutate(redist_change = redistSelf - previous_redist, 
-         income_change = p_gross_household - previous_income,
-         socgrade_change = p_socgrade - previous_socgrade, 
-         edlevel_change = p_edlevel - previous_edlevel,
-         leftRight_change = leftRight - previous_leftRight,
-         age_change = age - previous_age,
-         UnempConstRate_change = UnempConstRate - previous_UnempConstRate, 
-         UnempConstRate_scale_change = UnempConstRate_scale - previous_UnempConstRate_scale,
-         pcon_nat_rate_diff_change = pcon_nat_rate_diff - previous_pcon_nat_rate_diff, 
-         pcon_nat_rate_diff_scale_change = pcon_nat_rate_diff_scale - previous_pcon_nat_rate_diff_scale) %>% 
- 
-  # join in the pcon data 
+  # mutate(redist_change = redistSelf - previous_redist, 
+  #        income_change = p_gross_household - previous_income,
+  #        socgrade_change = p_socgrade - previous_socgrade, 
+  #        edlevel_change = p_edlevel - previous_edlevel,
+  #        leftRight_change = leftRight - previous_leftRight,
+  #        age_change = age - previous_age,
+  #        UnempConstRate_change = UnempConstRate - previous_UnempConstRate, 
+  #        UnempConstRate_scale_change = UnempConstRate_scale - previous_UnempConstRate_scale,
+  #        pcon_nat_rate_diff_change = pcon_nat_rate_diff - previous_pcon_nat_rate_diff, 
+  #        pcon_nat_rate_diff_scale_change = pcon_nat_rate_diff_scale - previous_pcon_nat_rate_diff_scale) %>% 
+  # 
+  # # join in the pcon data 
   left_join(., pcon_income, 
           by = c("area_name" = "PCON19NM")) %>% 
-  left_join(., pcon_income, 
-            by = c("previous_name" = "PCON19NM"),
-            suffix = c("_new","_old")) %>% 
+  #left_join(., pcon_income, 
+   #         by = c("previous_name" = "PCON19NM"),
+    #        suffix = c("_new","_old")) %>% 
   # make variables for relative and abolsute change between new and old places
-  mutate(new_old_diff_absolute = median_total_income_new - median_total_income_old, 
-         new_old_diff_relative = median_total_income_scale_new - median_total_income_scale_old) %>% 
+  #mutate(new_old_diff_absolute = median_total_income_new - median_total_income_old, 
+   #      new_old_diff_relative = median_total_income_scale_new - median_total_income_scale_old) %>% 
   # join in hte region lookup, to get region names in there as well 
   left_join(., pcon_region_lookup, 
             by = c("area_name" = "PCON19NM")) 
   
   
+mod <- felm(data = out, 
+            redistSelf ~ median_total_income | 
+              id + wave_moved | 0 | id)
+summary(mod)
+
 
 sum(is.na(out$UnempConstRate))
 
@@ -294,6 +300,7 @@ region_income <- region_income %>%
   mutate(gva_index_scale = scale(as.numeric(gva_index, na.rm = TRUE)))
 
 #  get the 2021 data to match to regions 
+
 
 
 
