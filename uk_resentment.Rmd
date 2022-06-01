@@ -430,8 +430,18 @@ modelsummary(list(redist_satdem, redist_efficacy),
 
 
 
-## Exploring other forms of resentment
+## Do perceptions track reality?
 
+```{r perceptions}
+test <- (lm_robust(data = df,
+                   areaRichPoor ~ imd_score + p_edlevel + age + 
+                     male + p_socgrade + p_gross_household, 
+                   fixed_effects = region, clusters = pcon))
+
+modelsummary(test,
+             output = "markdown",
+             stars = TRUE)
+```
 
 
 

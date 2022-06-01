@@ -3,16 +3,20 @@ library(haven)
 library(tidyverse)
 library(parlitools)
 
-full <- read_dta("bes/internet_panel/BES2019_W21_v21.0.dta")
+raw <- read_dta("bes/internet_panel/BES2019_W21_v21.0.dta")
 # read in pcon-to-region lookup
-lookup <- read_csv("uk_geography/pcon_data/pcon_region_lookup_2019.csv")
+lookup <- read_csv("uk_geography/pcon_data/pcon_region_lookup_2019.csv") %>% 
+  mutate(PCON19NM = case_when(
+    str_detect(PCON19NM, "Ynys") == TRUE ~ "Ynys Mon",
+    TRUE ~ PCON19NM
+  ))
 
 
-full[full == 9999] <- NA
-full[full == 9998] <- NA
+raw[raw == 9999] <- NA
+raw[raw == 9998] <- NA
 
 
-full <- full %>% 
+full <- raw %>% 
   select(starts_with("p_"),
          id, wt, turnoutUKGeneral:partyIdSqueeze,
          starts_with("econ"),
@@ -29,7 +33,8 @@ full <- full %>%
          ) %>% 
   select(-starts_with("partyContact")) %>% 
   mutate(PCON19NM = labelled::to_factor(pcon)) %>% 
-  left_join(., lookup, by = "PCON19NM") 
+  left_join(., lookup, by = "PCON19NM") %>% 
+  filter(PCON19NM != "NOT in a 2010 Parliamentary Constituency")
 
 # get 
 
@@ -227,9 +232,18 @@ imd19 <- read_csv("uk_geography/pcon_data/pcon_deprivation_2019_rank.csv",
 full <- left_join(full, imd19, by = "PCON19NM")
 
 
-
-
-
+# read in median income data
+income <- read_csv("uk_geography/pcon_data/pcon_income_data_2018.csv") %>% 
+  select(PCON19CD, PCON19NM, ends_with("total_income")) %>% 
+  mutate(PCON19NM = case_when(
+    PCON19NM == "Ynys Môn" ~ "Ynys Mon", 
+    TRUE ~ PCON19NM
+  ))
+           
+           
+full <- full %>% 
+  left_join(., income, by = c("PCON19CD", "PCON19NM")) 
+ 
 write.csv(full, "bes/internet_panel/clean_data/bes_wave21_clean.csv")
 
 
