@@ -209,11 +209,24 @@ lookafterlocal <- full %>%
       TRUE ~ as.numeric(NA)
     )) %>% 
   select(id, starts_with("party"))
-
-
-
-
 full <- left_join(full, lookafterlocal, by = "id")
+
+
+
+# read in IMD data 
+imd19_scores <- read_csv("uk_geography/pcon_data/pcon_deprivation_2019_score.csv",
+                         skip = 4) %>% 
+  select(PCON19NM = Constituency, 
+         imd_score = `Index of Multiple Deprivation`) 
+imd19 <- read_csv("uk_geography/pcon_data/pcon_deprivation_2019_rank.csv",
+                  skip = 5) %>% 
+  select(PCON19NM = Constituency, 
+         imd_rank = `Index of Multiple Deprivation`) %>% 
+  left_join(., imd19_scores, by = "PCON19NM")
+# join with full data - note that IMD will not exist for Scotland and Wales 
+full <- left_join(full, imd19, by = "PCON19NM")
+
+
 
 
 
