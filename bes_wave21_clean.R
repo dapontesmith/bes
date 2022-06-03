@@ -243,7 +243,24 @@ income <- read_csv("uk_geography/pcon_data/pcon_income_data_2018.csv") %>%
            
 full <- full %>% 
   left_join(., income, by = c("PCON19CD", "PCON19NM")) 
- 
+
+# join in distance-from-london data 
+# read in constituency distance data - distnace to london
+distances <- read_csv("uk_geography/pcon_data/constituencies_distance.csv") %>% 
+  mutate(distance = distance/1000,
+         # standardize some names to the full BES data 
+         constituency_name = str_replace(constituency_name, "St. ","St "),
+         constituency_name = case_when(
+           constituency_name == "Newry and Armagh" ~ "Newry & Armagh",
+           constituency_name == "Fermanagh and South Tyrone" ~ "Fermanagh & South Tyrone",
+           TRUE ~ constituency_name
+         )) %>% 
+  filter(year == 2017) %>% 
+  select(PCON19NM = constituency_name, distance)
+# do the join
+full <- full %>% 
+  left_join(., distances, by = "PCON19NM") 
+
 write.csv(full, "bes/internet_panel/clean_data/bes_wave21_clean.csv")
 
 
