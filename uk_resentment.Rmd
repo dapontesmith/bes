@@ -25,6 +25,7 @@ knitr::opts_chunk$set(echo = TRUE)
  df <- read_csv("bes/internet_panel/clean_data/bes_wave21_clean.csv") 
  df$areaRichPoor_scale <- scale(df$areaRichPoor)[,1]
  df$pcon <- df$PCON19CD
+ df$distance_scale <- scale(df$distance)[,1]
 ```
 
 ## Research questions
@@ -433,12 +434,44 @@ modelsummary(list(redist_satdem, redist_efficacy),
 ## Do perceptions track reality?
 
 ```{r perceptions}
-test <- (lm_robust(data = df,
-                   areaRichPoor ~ imd_score + p_edlevel + age + 
-                     male + p_socgrade + p_gross_household, 
-                   fixed_effects = region, clusters = pcon))
 
-modelsummary(test,
+mod1 <- felm(data = df, 
+             localFairShare ~ distance_scale + p_edlevel + age + male + 
+               p_socgrade + p_gross_household + leftRight + is_white | 
+               region | 0 | region)
+
+mod2 <- felm(data = df, 
+             londonFairShare ~ distance_scale + p_edlevel + age + male + 
+               p_socgrade + p_gross_household + leftRight + is_white | 
+               region | 0 | region)
+mod3 <- felm(data = df, 
+             london_local_fair_share ~ distance_scale + p_edlevel + age + male + 
+               p_socgrade + p_gross_household + leftRight + is_white | 
+               region | 0 | region)
+mod4 <- felm(data = df, 
+             areaRichPoor_scale ~ distance_scale + p_edlevel + age + male + 
+               p_socgrade + p_gross_household + leftRight + is_white | 
+               region | 0 | region)
+
+mod5 <- felm(data = df, 
+             redistSelf ~ distance_scale + p_edlevel + age + male + 
+               p_socgrade + p_gross_household + leftRight + is_white | 
+               region | 0 | region)
+
+summary(felm(data = df, areaRichPoor_scale ~ distance_scale*imd_score + 
+               p_edlevel + age + male + p_socgrade + p_gross_household + leftRight + 
+               is_white | region | 0 | region))
+
+# LOOKS LIKE DISTANCE IS A PRETTY GOOD PREDICTOR! 
+
+
+# NEXT STEP - MAKE DISTANCE MEASURE FOR PLACEBO POINT - IS LONDON UNIQUE?
+
+modelsummary(list("local" = mod1,
+                  "london" = mod2,
+                  "london-local" = mod3,
+                  "area rich poor" = mod4,
+                  "redist" = mod5),
              output = "markdown",
              stars = TRUE)
 ```
