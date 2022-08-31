@@ -11,6 +11,7 @@ header-includes:
 ```{r setup, include=FALSE}
 library(sf)
 library(tidyverse)
+library(lfe)
 library(stargazer)
 library(estimatr)
 library(modelsummary)
@@ -187,6 +188,49 @@ modelsummary(list(redist_london_local_econ_mod,
 
 \doublespace
 
+## Peripherality and perceptions of the fairness of redistribution 
+
+Beginning with the seminal work of Lipset and Rokkan (1967), political scientists identified the center-periphery cleavage as a crucial one in the developmennt of European party systems, but as having closed relatively early in the process. Recent economic developments, though, may have re-opened the cleavage. Particularly in European countries, whose political economies are centered around a small number of primate cities, the rise of so-called "superstar" cities has induced the economic decline of outlying areas. In the British context, London and its environs have prospered, while wide swathes of the north and west have declined. It is not unreasonable to suggest that the center-periphery cleavage has re-opened, this time with an economic guise rather than an ethno-cultural one. 
+
+
+The question therefore arises of whether peripherality exists in the minds of voters, and whether it exerts any tangible influence on vote choice. To assess this question, I use the geocodings available in the survey to construct, for each voter, a measure of the distance between their own constituency and London. I use this as a rough proxy for the geographic peripherality of the constitency, and accordingly of its residents. While the measure is imperfect, distance from London has historically correlated with peripherality in English history, and continues to do so to this day.
+
+I run four analyses, each using a different dependent variable. From left to right in table TKTK, the variables are: perceptions of local funding, perceptions of London's funding, the difference between the two, and perceptions of relative areal wealth. The analyses are linear regressions employing the standard slate of demographic variables. I include region fixed effects to ensure that I compare only respondents who live in the same region. Since I use these variables above as measures of place-based resentment, these analyses help us understand the relationship between peripherality and place-based resentment. 
+
+The results are consistent with each other, and run in the expected direction. Residents of more peripheral areas are more inclined to believe their local area does not receive its fair share of funding and more inclined to believe that London receives more than its share. They also are more inclined to believe that their area is relaively poorer. These results indicate that those who live at a further remove from the capital may also harbor higher levels of place-based resentment. 
+```{r perceptions}
+
+mod1 <- felm(data = df, 
+             localFairShare ~ distance_scale+ median_total_income + p_edlevel + age + male + 
+               p_socgrade + p_gross_household + leftRight + is_white | 
+               region | 0 | region)
+
+mod2 <- felm(data = df, 
+             londonFairShare ~ distance_scale + median_total_income+ p_edlevel + age + male + 
+               p_socgrade + p_gross_household + leftRight + is_white | 
+               region | 0 | region)
+mod3 <- felm(data = df, 
+             london_local_fair_share ~ distance_scale + median_total_income+ p_edlevel + age + male + 
+               p_socgrade + p_gross_household + leftRight + is_white | 
+               region | 0 | region)
+mod4 <- felm(data = df, 
+             areaRichPoor_scale ~ distance_scale+ median_total_income + p_edlevel + age + male + 
+               p_socgrade + p_gross_household + leftRight + is_white | 
+               region | 0 | region)
+
+
+# LOOKS LIKE DISTANCE IS A PRETTY GOOD PREDICTOR! 
+
+
+# NEXT STEP - MAKE DISTANCE MEASURE FOR PLACEBO POINT - IS LONDON UNIQUE?
+
+modelsummary(list("local" = mod1,
+                  "london" = mod2,
+                  "london-local" = mod3,
+                  "area rich poor" = mod4),
+             output = "markdown",
+             stars = TRUE)
+```
 
 ## Place-based resentment and motivations for vote choice
 
@@ -431,50 +475,7 @@ modelsummary(list(redist_satdem, redist_efficacy),
 
 
 
-## Do perceptions track reality?
 
-```{r perceptions}
-
-mod1 <- felm(data = df, 
-             localFairShare ~ distance_scale + p_edlevel + age + male + 
-               p_socgrade + p_gross_household + leftRight + is_white | 
-               region | 0 | region)
-
-mod2 <- felm(data = df, 
-             londonFairShare ~ distance_scale + p_edlevel + age + male + 
-               p_socgrade + p_gross_household + leftRight + is_white | 
-               region | 0 | region)
-mod3 <- felm(data = df, 
-             london_local_fair_share ~ distance_scale + p_edlevel + age + male + 
-               p_socgrade + p_gross_household + leftRight + is_white | 
-               region | 0 | region)
-mod4 <- felm(data = df, 
-             areaRichPoor_scale ~ distance_scale + p_edlevel + age + male + 
-               p_socgrade + p_gross_household + leftRight + is_white | 
-               region | 0 | region)
-
-mod5 <- felm(data = df, 
-             redistSelf ~ distance_scale + p_edlevel + age + male + 
-               p_socgrade + p_gross_household + leftRight + is_white | 
-               region | 0 | region)
-
-summary(felm(data = df, areaRichPoor_scale ~ distance_scale*imd_score + 
-               p_edlevel + age + male + p_socgrade + p_gross_household + leftRight + 
-               is_white | region | 0 | region))
-
-# LOOKS LIKE DISTANCE IS A PRETTY GOOD PREDICTOR! 
-
-
-# NEXT STEP - MAKE DISTANCE MEASURE FOR PLACEBO POINT - IS LONDON UNIQUE?
-
-modelsummary(list("local" = mod1,
-                  "london" = mod2,
-                  "london-local" = mod3,
-                  "area rich poor" = mod4,
-                  "redist" = mod5),
-             output = "markdown",
-             stars = TRUE)
-```
 
 
 
